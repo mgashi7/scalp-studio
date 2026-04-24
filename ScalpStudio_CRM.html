@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scalp Studio">
+<title>Scalp Studio CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --sage:#4A7C63;--sage-light:#EBF2EE;--sage-mid:#B8D4C5;--sage-dark:#2D5240;
+  --gold:#B8935A;--gold-light:#F5ECD8;--gold-dark:#8A6A38;
+  --cream:#FAF8F4;--white:#FFFFFF;
+  --charcoal:#2C2C2A;--text-mid:#4A4A47;--text-muted:#888780;
+  --border:#E8E5DF;--border-strong:#C8C5BE;
+  --red:#C0392B;--red-light:#FDECEA;
+  --green:#1E5C2A;--green-light:#E8F5EC;
+  --blue:#1A5276;--blue-light:#EAF2FB;
+  --purple:#6C3483;--purple-light:#F4ECF7;
+  --radius:14px;--radius-sm:9px;
+}
+html,body{height:100%;overflow:hidden;background:var(--cream)}
+body{font-family:'DM Sans',sans-serif;color:var(--charcoal);font-size:15px;line-height:1.5}
+.app{display:flex;height:100vh;height:100dvh}
+.sidebar{width:220px;background:var(--sage-dark);display:flex;flex-direction:column;flex-shrink:0}
+.brand{padding:30px 20px 18px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.brand-name{font-family:'DM Serif Display',serif;color:#fff;font-size:18px}
+.brand-tagline{color:rgba(255,255,255,0.35);font-size:10px;margin-top:2px;letter-spacing:0.1em;text-transform:uppercase}
+.nav{flex:1;padding:12px 0}
+.nav-item{display:flex;align-items:center;gap:11px;padding:12px 20px;color:rgba(255,255,255,0.55);cursor:pointer;transition:all 0.15s;font-size:14px;border-left:3px solid transparent;user-select:none}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85)}
+.nav-item.active{background:rgba(255,255,255,0.11);color:#fff;border-left-color:var(--gold);font-weight:500}
+.nav-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.sidebar-foot{padding:14px 20px;border-top:1px solid rgba(255,255,255,0.08)}
+.drive-status{display:flex;align-items:center;gap:7px;font-size:11px;color:rgba(255,255,255,0.4)}
+.drive-dot{width:7px;height:7px;border-radius:50%;background:#5CBF7A;flex-shrink:0;animation:pulse 2.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0}
+.topbar-title{font-family:'DM Serif Display',serif;font-size:22px;white-space:nowrap}
+.topbar-actions{display:flex;gap:8px;flex-shrink:0}
+.content{flex:1;overflow-y:auto;padding:22px 24px;-webkit-overflow-scrolling:touch}
+.page{display:none}.page.active{display:block}
+.btn{padding:9px 18px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;transition:all 0.15s;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.btn:active{transform:scale(0.97)}
+.btn-primary{background:var(--sage-dark);color:#fff}.btn-primary:hover{background:#1e3d2e}
+.btn-ghost{background:transparent;color:var(--text-mid);border:1px solid var(--border-strong)}.btn-ghost:hover{background:var(--sage-light)}
+.btn-gold{background:var(--gold);color:#fff}.btn-gold:hover{background:var(--gold-dark)}
+.btn-purple{background:var(--purple);color:#fff}.btn-purple:hover{background:#5b2c6f}
+.btn-sm{padding:6px 13px;font-size:12px}
+.btn-full{width:100%;padding:16px;font-size:16px;border-radius:var(--radius);justify-content:center;font-weight:500}
+.btn:disabled{opacity:0.55;cursor:not-allowed;transform:none}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.stat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px}
+.stat-card.a-gold{border-top:3px solid var(--gold)}.stat-card.a-sage{border-top:3px solid var(--sage)}.stat-card.a-red{border-top:3px solid var(--red)}
+.stat-label{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:6px;font-weight:600}
+.stat-value{font-family:'DM Serif Display',serif;font-size:34px;line-height:1}
+.stat-sub{font-size:11px;color:var(--text-muted);margin-top:4px}
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.card-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-weight:500;font-size:13px}
+.card-link{font-size:11px;color:var(--text-muted);cursor:pointer}.card-link:hover{color:var(--sage)}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.list-row{display:flex;align-items:center;gap:11px;padding:13px 20px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s}
+.list-row:last-child{border-bottom:none}.list-row:hover{background:var(--sage-light)}
+.avatar{width:36px;height:36px;border-radius:50%;background:var(--sage-light);color:var(--sage-dark);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.row-name{font-weight:500;font-size:14px}.row-sub{font-size:12px;color:var(--text-muted);margin-top:1px}
+.badge{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;flex-shrink:0}
+.badge-red{background:var(--red-light);color:var(--red)}.badge-sage{background:var(--sage-light);color:var(--sage-dark)}
+.badge-gold{background:var(--gold-light);color:var(--gold-dark)}.badge-green{background:var(--green-light);color:var(--green)}
+.badge-purple{background:var(--purple-light);color:var(--purple)}
+.empty{text-align:center;padding:36px 20px;color:var(--text-muted)}
+.empty-icon{font-size:30px;margin-bottom:8px}.empty-title{font-size:14px;font-weight:500;color:var(--text-mid);margin-bottom:3px}.empty-sub{font-size:12px}
+.search-input{width:100%;padding:11px 16px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--charcoal);background:var(--white);outline:none;margin-bottom:16px;transition:border 0.15s}
+.search-input:focus{border-color:var(--sage)}
+.table-wrap{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.table-head{display:grid;grid-template-columns:2fr 1.2fr 0.8fr 0.7fr 1fr;padding:11px 20px;background:var(--cream);border-bottom:1px solid var(--border);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted)}
+.table-row{display:grid;grid-template-columns:2fr 1.2fr 0.8fr 0.7fr 1fr;padding:13px 20px;border-bottom:1px solid var(--border);align-items:center;cursor:pointer;transition:background 0.1s}
+.table-row:last-child{border-bottom:none}.table-row:hover{background:var(--sage-light)}
+.client-cell{display:flex;align-items:center;gap:10px}
+.cell-name{font-weight:500;font-size:14px}.cell-id{font-size:11px;color:var(--text-muted)}.cell-text{font-size:13px;color:var(--text-mid)}
+.back-btn{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);cursor:pointer;margin-bottom:16px;padding:5px 0}
+.back-btn:hover{color:var(--charcoal)}
+.profile-header{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:18px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.profile-avatar{width:64px;height:64px;border-radius:50%;background:var(--sage-light);color:var(--sage-dark);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;flex-shrink:0}
+.profile-name{font-family:'DM Serif Display',serif;font-size:24px}
+.profile-id{font-size:12px;color:var(--text-muted);margin-top:2px}
+.profile-meta{display:flex;gap:16px;margin-top:8px;flex-wrap:wrap}
+.meta-item{font-size:13px;color:var(--text-mid)}
+.profile-stats{margin-left:auto;display:flex;gap:24px;text-align:center;flex-shrink:0}
+.pstat-val{font-family:'DM Serif Display',serif;font-size:28px;color:var(--sage-dark)}
+.pstat-label{font-size:11px;color:var(--text-muted);margin-top:2px}
+.profile-2col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.profile-full{margin-bottom:16px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:18px 20px}
+.info-field .i-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:3px;font-weight:600}
+.info-field .i-value{font-size:14px;color:var(--charcoal)}
+.session-item{border-bottom:1px solid var(--border)}.session-item:last-child{border-bottom:none}
+.session-row{display:flex;align-items:center;gap:12px;padding:14px 20px;cursor:pointer;transition:background 0.1s}
+.session-row:hover{background:var(--cream)}
+.session-num{width:32px;height:32px;border-radius:50%;background:var(--gold-light);color:var(--gold-dark);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.session-expand{display:none;border-top:1px solid var(--border);background:var(--cream)}
+.session-expand.open{display:block}
+.chevron{transition:transform 0.2s;font-size:12px;color:var(--text-muted);flex-shrink:0}
+.chevron.open{transform:rotate(180deg)}
+.session-path{font-size:11px;font-family:monospace;color:var(--sage);margin-top:2px}
+.analysis-box{margin:14px 20px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+.analysis-header{padding:10px 14px;background:var(--purple-light);border-bottom:1px solid #e0ccea}
+.analysis-title{font-size:12px;font-weight:600;color:var(--purple)}
+.analysis-body{padding:14px;font-size:13px;color:var(--text-mid);line-height:1.7;white-space:pre-wrap;max-height:280px;overflow-y:auto}
+.analysis-actions{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;background:var(--cream)}
+.add-analysis-panel{margin:0 20px 14px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+.tab-bar{display:flex;border-bottom:1px solid var(--border)}
+.tab-btn{flex:1;padding:10px;font-size:12px;font-weight:500;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text-muted);transition:all 0.15s;border-bottom:2px solid transparent}
+.tab-btn.active{background:var(--white);color:var(--purple);border-bottom-color:var(--purple)}
+.tab-pane{display:none;padding:14px}.tab-pane.active{display:block}
+.upcoming-item{display:flex;align-items:center;gap:14px;padding:13px 20px;border-bottom:1px solid var(--border)}
+.upcoming-item:last-child{border-bottom:none}
+.udb{background:var(--blue-light);color:var(--blue);border-radius:var(--radius-sm);padding:6px 10px;text-align:center;flex-shrink:0;min-width:50px}
+.udb-day{font-family:'DM Serif Display',serif;font-size:20px;line-height:1}
+.udb-mon{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600}
+.protocol-box{padding:18px 20px}
+.protocol-display{font-size:14px;color:var(--charcoal);line-height:1.8;white-space:pre-wrap}
+.protocol-empty{font-size:13px;color:var(--text-muted);font-style:italic}
+.protocol-edit-area{width:100%;padding:10px 14px;border:1px solid var(--sage-mid);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--charcoal);background:var(--white);outline:none;resize:vertical;min-height:120px;line-height:1.7}
+.protocol-edit-area:focus{border-color:var(--sage)}
+.add-upcoming-form{padding:14px 20px;border-top:1px solid var(--border);background:var(--cream);display:none}
+.add-upcoming-form.open{display:block}
+.add-upcoming-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.form-wrap{max-width:560px}
+.form-section{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:16px}
+.form-section-title{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);font-weight:600;margin-bottom:18px}
+.form-row{display:grid;gap:14px;margin-bottom:14px}.form-row:last-child{margin-bottom:0}
+.form-row.cols-2{grid-template-columns:1fr 1fr}
+.field-label{display:block;font-size:12px;font-weight:500;color:var(--text-mid);margin-bottom:5px}
+.field-input{width:100%;padding:10px 14px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--charcoal);background:var(--white);outline:none;transition:border 0.15s;-webkit-appearance:none}
+.field-input:focus{border-color:var(--sage)}
+.field-select{width:100%;padding:10px 14px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--charcoal);background:var(--white);outline:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.field-select:focus{border-color:var(--sage)}
+.field-textarea{width:100%;padding:10px 14px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--charcoal);background:var(--white);outline:none;resize:vertical;min-height:80px;-webkit-appearance:none}
+.field-textarea:focus{border-color:var(--sage)}
+.photo-drop{border:2px dashed var(--sage-mid);border-radius:var(--radius);padding:36px;text-align:center;cursor:pointer;background:var(--sage-light);transition:all 0.2s}
+.photo-drop:active{background:#dceae3;border-color:var(--sage)}
+.drop-icon{font-size:36px;margin-bottom:10px}
+.drop-title{font-size:16px;color:var(--sage-dark);font-weight:500}.drop-sub{font-size:12px;color:var(--text-muted);margin-top:4px}
+.photo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.photo-thumb{aspect-ratio:1;border-radius:var(--radius-sm);background:var(--border);overflow:hidden;position:relative}
+.photo-thumb img{width:100%;height:100%;object-fit:cover}
+.photo-remove{position:absolute;top:4px;right:4px;width:22px;height:22px;background:rgba(0,0,0,0.6);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;border:none}
+.fu-label{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);font-weight:600;margin-bottom:8px;margin-top:20px}
+.fu-label:first-child{margin-top:0}
+.fu-row{display:flex;align-items:center;gap:11px;padding:13px 20px;border-bottom:1px solid var(--border)}
+.fu-row:last-child{border-bottom:none}
+.tag{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.tag-red{background:var(--red-light);color:var(--red)}.tag-gold{background:var(--gold-light);color:var(--gold-dark)}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--charcoal);color:#fff;border-radius:var(--radius);padding:16px 20px;font-size:13px;display:none;z-index:999;min-width:280px;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.25)}
+.toast.show{display:block}
+.toast-title{font-weight:600;margin-bottom:4px;font-size:14px}
+.toast-msg{font-size:12px;color:rgba(255,255,255,0.6)}
+.toast-bar{background:rgba(255,255,255,0.15);border-radius:3px;height:3px;margin-top:12px}
+.toast-fill{background:#5CBF7A;height:3px;border-radius:3px;width:0%;transition:width 0.5s}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.45);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:var(--white);border-radius:var(--radius);padding:28px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto}
+.modal-title{font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:22px}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:18px;border-top:1px solid var(--border)}
+.pdf-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;z-index:300;padding:20px}
+.pdf-modal-bg.open{display:flex}
+.pdf-modal{background:var(--white);border-radius:var(--radius);width:100%;max-width:700px;max-height:92vh;display:flex;flex-direction:column}
+.pdf-modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.pdf-modal-title{font-weight:600;font-size:15px}
+.pdf-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-muted);line-height:1}
+.pdf-body{flex:1;overflow-y:auto;padding:32px}
+.pdf-content{max-width:600px;margin:0 auto}
+.pdf-clinic{font-family:'DM Serif Display',serif;font-size:24px;color:var(--sage-dark)}
+.pdf-divider{height:2px;background:var(--sage-mid);margin:12px 0 24px}
+.pdf-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
+.pif-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);font-weight:600;margin-bottom:2px;font-family:'DM Sans',sans-serif}
+.pif-value{font-size:14px;color:var(--charcoal);font-family:'DM Sans',sans-serif}
+.pdf-sec-title{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--sage-dark);font-family:'DM Sans',sans-serif;font-weight:600;margin-bottom:8px;margin-top:20px}
+.pdf-text{font-family:'DM Sans',sans-serif;font-size:14px;color:var(--charcoal);line-height:1.8;white-space:pre-wrap}
+.pdf-footer-note{margin-top:32px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--text-muted);font-family:'DM Sans',sans-serif}
+.pdf-modal-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:768px){
+  .sidebar{width:60px}.brand-name,.brand-tagline,.nav-item span:not(.nav-icon),.sidebar-foot .drive-status span{display:none}
+  .nav-item{padding:14px;justify-content:center}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}.dash-grid,.profile-2col{grid-template-columns:1fr}
+  .form-row.cols-2{grid-template-columns:1fr}
+  .table-head,.table-row{grid-template-columns:2fr 1fr 0.6fr}
+  .table-head span:nth-child(n+4),.table-row>div:nth-child(n+4){display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="brand"><div class="brand-name">Scalp Studio</div><div class="brand-tagline">Client CRM</div></div>
+  <nav class="nav">
+    <div class="nav-item active" onclick="go('dashboard')"><span class="nav-icon">&#9635;</span><span>Dashboard</span></div>
+    <div class="nav-item" onclick="go('clients')"><span class="nav-icon">&#9678;</span><span>Clients</span></div>
+    <div class="nav-item" onclick="go('new-visit')"><span class="nav-icon">+</span><span>New Visit</span></div>
+    <div class="nav-item" onclick="go('register')"><span class="nav-icon">&#10022;</span><span>Register Client</span></div>
+    <div class="nav-item" onclick="go('followups')"><span class="nav-icon">&#9711;</span><span>Follow-ups</span></div>
+  </nav>
+  <div class="sidebar-foot"><div class="drive-status"><div class="drive-dot"></div><span>Drive connected</span></div></div>
+</aside>
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="page-title">Dashboard</div>
+    <div class="topbar-actions" id="topbar-actions"></div>
+  </div>
+  <div class="content">
+
+    <div class="page active" id="page-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card a-gold"><div class="stat-label">Total Clients</div><div class="stat-value" id="st-clients">0</div><div class="stat-sub">Registered</div></div>
+        <div class="stat-card a-sage"><div class="stat-label">Total Visits</div><div class="stat-value" id="st-visits">0</div><div class="stat-sub">All time</div></div>
+        <div class="stat-card"><div class="stat-label">This Month</div><div class="stat-value" id="st-month">0</div><div class="stat-sub" id="st-month-name">Visits</div></div>
+        <div class="stat-card a-red"><div class="stat-label">Overdue Follow-ups</div><div class="stat-value" id="st-overdue">0</div><div class="stat-sub">Need attention</div></div>
+      </div>
+      <div class="dash-grid">
+        <div class="card"><div class="card-header"><span class="card-title">Recent Visits</span><span class="card-link" onclick="go('clients')">View all &rarr;</span></div><div id="dash-recent"></div></div>
+        <div class="card"><div class="card-header"><span class="card-title">Overdue Follow-ups</span><span class="card-link" style="color:var(--red)" onclick="go('followups')">View all &rarr;</span></div><div id="dash-overdue"></div></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-clients">
+      <input class="search-input" type="text" placeholder="Search by name, phone or city..." id="client-search" oninput="renderTable()">
+      <div class="table-wrap">
+        <div class="table-head"><span>Client</span><span>Phone</span><span>City</span><span>Visits</span><span>Follow-up</span></div>
+        <div id="clients-tbody"></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-profile">
+      <div class="back-btn" onclick="go('clients')">&larr; Back to clients</div>
+      <div id="profile-content"></div>
+    </div>
+
+    <div class="page" id="page-register">
+      <div class="form-wrap">
+        <div class="form-section">
+          <div class="form-section-title">Personal Information</div>
+          <div class="form-row cols-2">
+            <div><label class="field-label">Full Name *</label><input class="field-input" id="r-name" placeholder="e.g. Mario Gashi" type="text"></div>
+            <div><label class="field-label">Phone *</label><input class="field-input" id="r-phone" placeholder="+355..." type="tel"></div>
+          </div>
+          <div class="form-row cols-2">
+            <div><label class="field-label">Email</label><input class="field-input" id="r-email" placeholder="email@example.com" type="email"></div>
+            <div><label class="field-label">Birthday</label><input class="field-input" id="r-birthday" type="date"></div>
+          </div>
+          <div class="form-row cols-2">
+            <div><label class="field-label">Gender</label>
+              <select class="field-select" id="r-gender"><option value="">Select...</option><option>Female</option><option>Male</option><option>Other</option><option>Prefer not to say</option></select>
+            </div>
+            <div><label class="field-label">City</label><input class="field-input" id="r-city" placeholder="e.g. Tirana"></div>
+          </div>
+          <div class="form-row"><div><label class="field-label">Notes / Allergies</label><textarea class="field-textarea" id="r-notes" placeholder="Any allergies or important notes..."></textarea></div></div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary" onclick="saveClient()">Save Client</button>
+          <button class="btn btn-ghost" onclick="go('clients')">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-new-visit">
+      <div class="form-wrap">
+        <div class="form-section">
+          <div class="form-section-title">Visit Details</div>
+          <div class="form-row cols-2">
+            <div><label class="field-label">Client *</label>
+              <select class="field-select" id="v-client"><option value="">Choose a client...</option></select>
+            </div>
+            <div><label class="field-label">Date of Treatment</label>
+              <input class="field-input" id="v-date" type="text" placeholder="dd/mm/yyyy" maxlength="10" oninput="fmtInput(this)">
+            </div>
+          </div>
+        </div>
+        <div class="form-section">
+          <div class="form-section-title">Visit Photos</div>
+          <div class="photo-drop" onclick="document.getElementById('v-photos').click()">
+            <div class="drop-icon">&#128247;</div>
+            <div class="drop-title">Tap to select photos</div>
+            <div class="drop-sub">You can select multiple photos at once</div>
+          </div>
+          <input type="file" id="v-photos" style="display:none" multiple accept="image/*" onchange="onPhotos(event)">
+          <div class="photo-grid" id="photo-grid"></div>
+        </div>
+        <button class="btn btn-gold btn-full" onclick="saveVisit()" id="btn-save-visit">Save &amp; Upload to Google Drive</button>
+      </div>
+    </div>
+
+    <div class="page" id="page-followups">
+      <div class="fu-label">Overdue</div>
+      <div class="card" style="margin-bottom:20px"><div id="fu-overdue"></div></div>
+      <div class="fu-label">Upcoming &mdash; next 30 days</div>
+      <div class="card"><div id="fu-upcoming"></div></div>
+    </div>
+
+  </div>
+</main>
+</div>
+
+<div class="modal-bg" id="edit-modal">
+  <div class="modal">
+    <div class="modal-title">Edit Client</div>
+    <div class="form-row cols-2">
+      <div><label class="field-label">Full Name</label><input class="field-input" id="e-name"></div>
+      <div><label class="field-label">Phone</label><input class="field-input" id="e-phone"></div>
+    </div>
+    <div class="form-row cols-2">
+      <div><label class="field-label">Email</label><input class="field-input" id="e-email" type="email"></div>
+      <div><label class="field-label">Birthday</label><input class="field-input" id="e-birthday" type="date"></div>
+    </div>
+    <div class="form-row cols-2">
+      <div><label class="field-label">Gender</label>
+        <select class="field-select" id="e-gender"><option value="">Select...</option><option>Female</option><option>Male</option><option>Other</option><option>Prefer not to say</option></select>
+      </div>
+      <div><label class="field-label">City</label><input class="field-input" id="e-city"></div>
+    </div>
+    <div class="form-row"><div><label class="field-label">Notes / Allergies</label><textarea class="field-textarea" id="e-notes"></textarea></div></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeEdit()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="pdf-modal-bg" id="pdf-modal">
+  <div class="pdf-modal">
+    <div class="pdf-modal-head"><div class="pdf-modal-title" id="pdf-modal-title">Analysis Report</div><button class="pdf-close" onclick="closePdf()">&#x2715;</button></div>
+    <div class="pdf-body"><div class="pdf-content" id="pdf-content"></div></div>
+    <div class="pdf-modal-foot">
+      <button class="btn btn-ghost btn-sm" onclick="closePdf()">Close</button>
+      <button class="btn btn-primary btn-sm" onclick="doPrint()">&#128424; Print / Save as PDF</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <div class="toast-title" id="t-title">Saving...</div>
+  <div class="toast-msg" id="t-msg">Please wait</div>
+  <div class="toast-bar"><div class="toast-fill" id="t-fill"></div></div>
+</div>
+
+<script>
+const SHEET_ID='14XS6SRcngXDAphUIjfoRcKQUkBF68G8xPniaa0oY4ck';
+const FOLDER_ID='1L5PCsfcLSIOu-G5VyGn-C5mxBWVBkiF9';
+const API='https://api.anthropic.com/v1/messages';
+const MDL='claude-sonnet-4-20250514';
+const MCP=[{type:'url',url:'https://drivemcp.googleapis.com/mcp/v1',name:'gdrive'}];
+
+let clients=[],visits=[],photos=[],editId=null,viewId=null;
+
+/* ── DATE UTILS ── */
+function todayDMY(){
+  const d=new Date();
+  return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();
+}
+function pad(n){return String(n).padStart(2,'0');}
+function fmtInput(el){
+  let v=el.value.replace(/\D/g,'');
+  if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);
+  if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5,9);
+  el.value=v;
+}
+function dmyToISO(s){
+  if(!s)return'';
+  if(/^\d{2}\/\d{2}\/\d{4}$/.test(s)){const[d,m,y]=s.split('/');return y+'-'+m+'-'+d;}
+  return s;
+}
+function fmtDate(s){
+  if(!s)return'\u2014';
+  if(/^\d{2}\/\d{2}\/\d{4}$/.test(s))return s;
+  try{
+    const dt=new Date(s);
+    if(isNaN(dt))return s;
+    return pad(dt.getDate())+'/'+pad(dt.getMonth()+1)+'/'+dt.getFullYear();
+  }catch(e){return s;}
+}
+function isOver(d){if(!d)return false;try{return new Date(dmyToISO(d))<new Date();}catch(e){return false;}}
+function isSoon(d){if(!d)return false;try{const n=new Date(),f=new Date();f.setDate(f.getDate()+30);const dt=new Date(dmyToISO(d));return dt>=n&&dt<=f;}catch(e){return false;}}
+function isFut(d){if(!d)return false;try{return new Date(dmyToISO(d))>=new Date();}catch(e){return false;}}
+
+const ini=n=>(n||'?').split(' ').map(x=>x[0]||'').join('').toUpperCase().slice(0,2);
+const esc=t=>(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const cv=cid=>visits.filter(v=>v.ClientID===cid);
+function nextId(){if(!clients.length)return'CL-0001';return'CL-'+String(Math.max(...clients.map(c=>parseInt((c.ClientID||'0').replace('CL-',''))||0))+1).padStart(4,'0');}
+
+/* ── TOAST ── */
+function toast(ti,ms,pct=0){
+  document.getElementById('t-title').textContent=ti;
+  document.getElementById('t-msg').textContent=ms;
+  document.getElementById('t-fill').style.width=pct+'%';
+  document.getElementById('toast').classList.add('show');
+}
+function hideToast(){setTimeout(()=>document.getElementById('toast').classList.remove('show'),2500);}
+
+/* ── NAV ── */
+function go(page,cid){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  const T={dashboard:'Dashboard',clients:'Clients',profile:'Client Profile',register:'Register New Client','new-visit':'New Visit',followups:'Follow-ups'};
+  document.getElementById('page-title').textContent=T[page]||page;
+  const NM={dashboard:0,clients:1,'new-visit':2,register:3,followups:4,profile:1};
+  document.querySelectorAll('.nav-item')[NM[page]||0].classList.add('active');
+  const ta=document.getElementById('topbar-actions');ta.innerHTML='';
+  if(page==='dashboard')renderDash();
+  if(page==='clients')renderTable();
+  if(page==='new-visit')prepVisit();
+  if(page==='followups')renderFollowups();
+  if(page==='register')clearReg();
+  if(page==='profile'&&cid){viewId=cid;renderProfile(cid);
+    ta.innerHTML='<button class="btn btn-ghost btn-sm" onclick="openEdit(\''+cid+'\')">Edit</button><button class="btn btn-primary btn-sm" onclick="quickVisit(\''+cid+'\')">+ New Visit</button>';}
+}
+
+/* ── API ── */
+async function claude(msg,tokens=2000,mcp=true){
+  const b={model:MDL,max_tokens:tokens,messages:[{role:'user',content:msg}]};
+  if(mcp)b.mcp_servers=MCP;
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+  const d=await r.json();
+  return d.content.filter(x=>x.type==='text').map(x=>x.text).join('');
+}
+async function claudeImg(prompt,files){
+  const parts=[];
+  for(const f of files){
+    const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
+    parts.push({type:'image',source:{type:'base64',media_type:f.type||'image/jpeg',data:b64}});
+  }
+  parts.push({type:'text',text:prompt});
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:MDL,max_tokens:2000,messages:[{role:'user',content:parts}]})});
+  const d=await r.json();
+  return d.content.filter(x=>x.type==='text').map(x=>x.text).join('');
+}
+const APROMPT='You are a professional scalp and hair treatment specialist. Analyse these scalp photos carefully. Provide a detailed clinical assessment including: 1) Scalp condition and health observations, 2) Hair density and growth patterns, 3) Any visible concerns or issues, 4) Recommended treatment approach, 5) Follow-up recommendations. Be thorough and professional.';
+
+/* ── LOAD ── */
+async function loadData(){
+  toast('Loading...','Connecting to Google Sheet',20);
+  try{
+    const txt=await claude('Read Google Spreadsheet ID "'+SHEET_ID+'". Get ALL rows from sheets "Clients" and "Visits". Return ONLY valid JSON: {"clients":[...],"visits":[...]} using header row as keys. No markdown.',5000);
+    const p=JSON.parse(txt.replace(/```json|```/g,'').trim());
+    clients=(p.clients||[]).filter(c=>c.ClientID&&c['Full Name']);
+    visits=(p.visits||[]).filter(v=>v.VisitID&&v.ClientID);
+    toast('Ready',''  ,100);hideToast();
+  }catch(e){clients=[];visits=[];toast('Offline mode','Could not connect',50);hideToast();}
+  renderDash();
+}
+
+/* ── DASHBOARD ── */
+function renderDash(){
+  document.getElementById('st-clients').textContent=clients.length;
+  document.getElementById('st-visits').textContent=visits.length;
+  const n=new Date();
+  const mv=visits.filter(v=>{const d=new Date(dmyToISO(v.Date||''));return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();});
+  document.getElementById('st-month').textContent=mv.length;
+  document.getElementById('st-month-name').textContent=n.toLocaleString('default',{month:'long'});
+  const ov=clients.filter(c=>isOver(c['Follow-up Date']));
+  document.getElementById('st-overdue').textContent=ov.length;
+  const recent=[...visits].sort((a,b)=>new Date(dmyToISO(b.Date||''))-new Date(dmyToISO(a.Date||''))).slice(0,5);
+  document.getElementById('dash-recent').innerHTML=recent.length===0?'<div class="empty"><div class="empty-icon">&#128203;</div><div class="empty-title">No visits yet</div></div>':
+    recent.map(v=>{const c=clients.find(x=>x.ClientID===v.ClientID);if(!c)return'';
+      return'<div class="list-row" onclick="go(\'profile\',\''+c.ClientID+'\')"><div class="avatar">'+ini(c['Full Name'])+'</div><div><div class="row-name">'+c['Full Name']+'</div><div class="row-sub">'+fmtDate(v.Date)+' &middot; Session '+(v['Session No']||'?')+'</div></div><span class="badge badge-sage" style="margin-left:auto">&#10003;</span></div>';}).join('');
+  document.getElementById('dash-overdue').innerHTML=ov.length===0?'<div class="empty"><div class="empty-icon">&#10003;</div><div class="empty-title">All clear</div></div>':
+    ov.map(c=>'<div class="list-row" onclick="go(\'profile\',\''+c.ClientID+'\')"><div class="avatar">'+ini(c['Full Name'])+'</div><div><div class="row-name">'+c['Full Name']+'</div><div class="row-sub">Due: '+fmtDate(c['Follow-up Date'])+'</div></div><span class="badge badge-red">Overdue</span></div>').join('');
+}
+
+/* ── TABLE ── */
+function renderTable(){
+  const q=(document.getElementById('client-search')?.value||'').toLowerCase();
+  const fl=clients.filter(c=>(c['Full Name']||'').toLowerCase().includes(q)||(c.Phone||'').includes(q)||(c.City||'').toLowerCase().includes(q));
+  const el=document.getElementById('clients-tbody');
+  if(!fl.length){el.innerHTML='<div class="empty"><div class="empty-icon">&#128100;</div><div class="empty-title">No clients yet</div><div class="empty-sub"><button class="btn btn-primary btn-sm" onclick="go(\'register\')" style="margin-top:10px">Register first client</button></div></div>';return;}
+  el.innerHTML=fl.map(c=>{
+    const n=cv(c.ClientID).length,fu=c['Follow-up Date'];
+    const fb=isOver(fu)?'<span class="badge badge-red">Overdue</span>':isSoon(fu)?'<span class="badge badge-gold">Upcoming</span>':fu?'<span style="font-size:12px;color:var(--text-muted)">'+fmtDate(fu)+'</span>':'<span style="font-size:12px;color:var(--text-muted)">&mdash;</span>';
+    return'<div class="table-row" onclick="go(\'profile\',\''+c.ClientID+'\')">'
+      +'<div class="client-cell"><div class="avatar">'+ini(c['Full Name'])+'</div><div><div class="cell-name">'+c['Full Name']+'</div><div class="cell-id">'+c.ClientID+'</div></div></div>'
+      +'<div class="cell-text">'+(c.Phone||'&mdash;')+'</div><div class="cell-text">'+(c.City||'&mdash;')+'</div>'
+      +'<div style="font-size:14px;font-weight:500">'+n+'</div><div>'+fb+'</div></div>';}).join('');
+}
+
+/* ── PROFILE ── */
+function renderProfile(cid){
+  const c=clients.find(x=>x.ClientID===cid);if(!c)return;
+  const sess=cv(cid).sort((a,b)=>new Date(dmyToISO(b.Date||''))-new Date(dmyToISO(a.Date||'')));
+  const fu=c['Follow-up Date'];
+  let upcoming=[];try{upcoming=JSON.parse(c.UpcomingDates||'[]');}catch(e){upcoming=[];}
+  upcoming=upcoming.filter(u=>isFut(u.date)).sort((a,b)=>new Date(dmyToISO(a.date))-new Date(dmyToISO(b.date)));
+  const proto=c.Protocol||'';
+
+  document.getElementById('profile-content').innerHTML=
+    '<div class="profile-header">'
+    +'<div class="profile-avatar">'+ini(c['Full Name'])+'</div>'
+    +'<div>'
+    +'<div class="profile-name">'+c['Full Name']+'</div>'
+    +'<div class="profile-id">'+c.ClientID+'</div>'
+    +'<div class="profile-meta">'
+    +(c.Phone?'<span class="meta-item">&#128222; '+c.Phone+'</span>':'')
+    +(c.Email?'<span class="meta-item">&#9993; '+c.Email+'</span>':'')
+    +(c.City?'<span class="meta-item">&#128205; '+c.City+'</span>':'')
+    +(c.Gender?'<span class="meta-item">'+c.Gender+'</span>':'')
+    +'</div></div>'
+    +'<div class="profile-stats">'
+    +'<div><div class="pstat-val">'+sess.length+'</div><div class="pstat-label">Sessions</div></div>'
+    +(fu?'<div><div class="pstat-val" style="font-size:16px;'+(isOver(fu)?'color:var(--red)':'')+'">'+fmtDate(fu)+'</div><div class="pstat-label">'+(isOver(fu)?'&#9888; Overdue':'Follow-up')+'</div></div>':'')
+    +'</div></div>'
+
+    /* details + sessions */
+    +'<div class="profile-2col">'
+    +'<div class="card"><div class="card-header"><span class="card-title">Client Details</span></div>'
+    +'<div class="info-grid">'
+    +'<div class="info-field"><div class="i-label">Phone</div><div class="i-value">'+(c.Phone||'&mdash;')+'</div></div>'
+    +'<div class="info-field"><div class="i-label">Email</div><div class="i-value">'+(c.Email||'&mdash;')+'</div></div>'
+    +'<div class="info-field"><div class="i-label">City</div><div class="i-value">'+(c.City||'&mdash;')+'</div></div>'
+    +'<div class="info-field"><div class="i-label">Gender</div><div class="i-value">'+(c.Gender||'&mdash;')+'</div></div>'
+    +'<div class="info-field"><div class="i-label">Birthday</div><div class="i-value">'+fmtDate(c.Birthday)+'</div></div>'
+    +'<div class="info-field"><div class="i-label">Client since</div><div class="i-value">'+fmtDate(c['Created At'])+'</div></div>'
+    +(c.Notes?'<div class="info-field" style="grid-column:1/-1"><div class="i-label">Notes / Allergies</div><div class="i-value">'+c.Notes+'</div></div>':'')
+    +'</div></div>'
+
+    +'<div class="card"><div class="card-header"><span class="card-title">Visit History</span><span style="font-size:12px;color:var(--text-muted)">'+sess.length+' session'+(sess.length!==1?'s':'')+'</span></div>'
+    +'<div id="sess-list">'
+    +(sess.length===0?'<div class="empty"><div class="empty-icon">&#128247;</div><div class="empty-title">No visits yet</div></div>':sess.map(v=>sessItem(v,c)).join(''))
+    +'</div></div></div>'
+
+    /* upcoming dates */
+    +'<div class="profile-full"><div class="card">'
+    +'<div class="card-header"><span class="card-title">&#128197; Upcoming Treatment Dates</span>'
+    +'<button class="btn btn-ghost btn-sm" onclick="toggleAddUp(\''+cid+'\')">+ Add date</button></div>'
+    +'<div id="up-list-'+cid+'">'
+    +(upcoming.length===0?'<div class="empty"><div class="empty-icon">&#128197;</div><div class="empty-title">No upcoming dates yet</div><div class="empty-sub">Add the next treatment date</div></div>':upcoming.map((u,i)=>upItem(u,i,cid)).join(''))
+    +'</div>'
+    +'<div class="add-upcoming-form" id="auf-'+cid+'">'
+    +'<div class="add-upcoming-row">'
+    +'<div><label class="field-label">Date (dd/mm/yyyy)</label><input class="field-input" id="nud-'+cid+'" type="text" placeholder="dd/mm/yyyy" maxlength="10" oninput="fmtInput(this)" style="width:160px"></div>'
+    +'<div style="flex:1"><label class="field-label">Note (optional)</label><input class="field-input" id="nun-'+cid+'" type="text" placeholder="e.g. Follow-up session"></div>'
+    +'<div><button class="btn btn-primary btn-sm" onclick="addUpDate(\''+cid+'\')">Save</button>'
+    +' <button class="btn btn-ghost btn-sm" onclick="toggleAddUp(\''+cid+'\')">Cancel</button></div>'
+    +'</div></div></div></div>'
+
+    /* protocol */
+    +'<div class="profile-full"><div class="card">'
+    +'<div class="card-header"><span class="card-title">&#129380; Today\'s Treatment Protocol</span>'
+    +'<button class="btn btn-ghost btn-sm" id="pbtn-'+cid+'" onclick="editProto(\''+cid+'\')">Edit</button></div>'
+    +'<div class="protocol-box" id="pdisp-'+cid+'">'
+    +(proto?'<div class="protocol-display">'+esc(proto)+'</div>':'<div class="protocol-empty">No protocol saved yet. Tap Edit to add today\'s treatment protocol.</div>')
+    +'</div>'
+    +'<div class="protocol-box" id="pedit-'+cid+'" style="display:none">'
+    +'<textarea class="protocol-edit-area" id="pta-'+cid+'">'+esc(proto)+'</textarea>'
+    +'<div style="display:flex;gap:8px;margin-top:10px">'
+    +'<button class="btn btn-primary btn-sm" onclick="saveProto(\''+cid+'\')">Save Protocol</button>'
+    +'<button class="btn btn-ghost btn-sm" onclick="cancelProto(\''+cid+'\')">Cancel</button>'
+    +'</div></div></div></div>';
+}
+
+function upItem(u,i,cid){
+  const parts=fmtDate(u.date).split('/');
+  const day=parts[0]||'--';
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const mon=parts[1]?months[parseInt(parts[1])-1]||'':'--';
+  return'<div class="upcoming-item">'
+    +'<div class="udb"><div class="udb-day">'+day+'</div><div class="udb-mon">'+mon+'</div></div>'
+    +'<div style="flex:1"><div style="font-weight:500;font-size:14px">'+(u.note||'Treatment session')+'</div>'
+    +'<div style="font-size:12px;color:var(--text-muted)">'+fmtDate(u.date)+'</div></div>'
+    +'<button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:#f5c6c6" onclick="removeUp(\''+cid+'\','+i+')">Remove</button>'
+    +'</div>';
+}
+
+function toggleAddUp(cid){
+  const f=document.getElementById('auf-'+cid);
+  f.classList.toggle('open');
+  if(f.classList.contains('open')){document.getElementById('nud-'+cid).value='';document.getElementById('nun-'+cid).value='';document.getElementById('nud-'+cid).focus();}
+}
+async function addUpDate(cid){
+  const dv=document.getElementById('nud-'+cid).value.trim();
+  const nv=document.getElementById('nun-'+cid).value.trim();
+  if(!dv||dv.length<10){alert('Please enter a valid date in dd/mm/yyyy format.');return;}
+  const c=clients.find(x=>x.ClientID===cid);
+  let up=[];try{up=JSON.parse(c.UpcomingDates||'[]');}catch(e){up=[];}
+  up.push({date:dv,note:nv||'Treatment session'});
+  c.UpcomingDates=JSON.stringify(up);
+  toast('Saving date...','',40);
+  try{await claude('In Google Spreadsheet ID "'+SHEET_ID+'", Clients sheet, find row where column A="'+cid+'". Update the UpcomingDates column (create if missing) with this value: '+JSON.stringify(c.UpcomingDates)+'. Reply: DONE',300);toast('Saved','' ,100);}
+  catch(e){toast('Saved locally','',80);}
+  hideToast();renderProfile(cid);
+}
+async function removeUp(cid,idx){
+  const c=clients.find(x=>x.ClientID===cid);
+  let up=[];try{up=JSON.parse(c.UpcomingDates||'[]');}catch(e){up=[];}
+  up.splice(idx,1);c.UpcomingDates=JSON.stringify(up);
+  toast('Removing...','',40);
+  try{await claude('In Google Spreadsheet ID "'+SHEET_ID+'", Clients sheet, find row where column A="'+cid+'". Update the UpcomingDates column with: '+JSON.stringify(c.UpcomingDates)+'. Reply: DONE',300);toast('Removed','',100);}
+  catch(e){toast('Saved locally','',80);}
+  hideToast();renderProfile(cid);
+}
+function editProto(cid){document.getElementById('pdisp-'+cid).style.display='none';document.getElementById('pedit-'+cid).style.display='block';document.getElementById('pbtn-'+cid).style.display='none';document.getElementById('pta-'+cid).focus();}
+function cancelProto(cid){document.getElementById('pdisp-'+cid).style.display='';document.getElementById('pedit-'+cid).style.display='none';document.getElementById('pbtn-'+cid).style.display='';}
+async function saveProto(cid){
+  const txt=document.getElementById('pta-'+cid).value.trim();
+  const c=clients.find(x=>x.ClientID===cid);c.Protocol=txt;
+  toast('Saving protocol...','',50);
+  try{await claude('In Google Spreadsheet ID "'+SHEET_ID+'", Clients sheet, find row where column A="'+cid+'". Update the Protocol column (create if missing) with this text: '+JSON.stringify(txt)+'. Reply: DONE',300);toast('Protocol saved','',100);}
+  catch(e){toast('Saved locally','',80);}
+  hideToast();renderProfile(cid);
+}
+
+/* ── SESSIONS ── */
+function sessItem(v,c){
+  const vid=v.VisitID||'';
+  const hasA=!!(v.Analysis&&v.Analysis.trim());
+  return'<div class="session-item" id="si-'+vid+'">'
+    +'<div class="session-row" onclick="toggleSess(\''+vid+'\')"><div class="session-num">S'+(v['Session No']||'?')+'</div>'
+    +'<div style="flex:1"><div style="font-weight:500;font-size:14px">Session '+(v['Session No']||'?')+'</div>'
+    +'<div style="font-size:12px;color:var(--text-muted)">'+fmtDate(v.Date)+(v.Notes?' &middot; '+v.Notes:'')+'</div>'
+    +(v['Drive Folder']?'<div class="session-path">&#128193; '+v['Drive Folder']+'</div>':'')
+    +'</div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
+    +(hasA?'<span class="badge badge-purple">&#129504; Analysis</span>':'')
+    +'<span class="badge badge-green">&#10003; Drive</span>'
+    +'<span class="chevron" id="chev-'+vid+'">&#9662;</span></div></div>'
+    +'<div class="session-expand" id="se-'+vid+'">'
+    +'<div style="padding:14px 20px 0">'
+    +(hasA?'<div class="analysis-box"><div class="analysis-header"><span class="analysis-title">&#129504; Scalp Analysis Report</span></div>'
+      +'<div class="analysis-body">'+esc(v.Analysis)+'</div>'
+      +'<div class="analysis-actions"><button class="btn btn-purple btn-sm" onclick="viewPdf(\''+vid+'\')">View as PDF</button>'
+      +' <button class="btn btn-ghost btn-sm" onclick="printSess(\''+vid+'\')">&#128424; Print</button></div></div>'
+      :'<div style="font-size:13px;color:var(--text-muted);padding:0 0 12px">No analysis saved. <span style="color:var(--purple);cursor:pointer;text-decoration:underline" onclick="showAP(\''+vid+'\')">Add one &rarr;</span></div>')
+    +'</div>'
+    +'<div class="add-analysis-panel" id="aap-'+vid+'" style="display:none;margin:0 20px 14px">'
+    +'<div class="tab-bar">'
+    +'<button class="tab-btn active" id="tb-p-'+vid+'" onclick="stab(\''+vid+'\',\'p\')">&#128203; Paste text</button>'
+    +'<button class="tab-btn" id="tb-a-'+vid+'" onclick="stab(\''+vid+'\',\'a\')">&#129504; Auto-analyse</button>'
+    +'</div>'
+    +'<div class="tab-pane active" id="tp-p-'+vid+'">'
+    +'<label class="field-label">Paste the ChatGPT analysis</label>'
+    +'<textarea class="field-textarea" id="pa-'+vid+'" placeholder="Paste full analysis here..." style="min-height:100px"></textarea>'
+    +'<button class="btn btn-purple btn-sm" style="margin-top:8px" onclick="savePA(\''+vid+'\')">Save Analysis</button>'
+    +'</div>'
+    +'<div class="tab-pane" id="tp-a-'+vid+'">'
+    +'<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">Upload scalp photos and AI will analyse them.</div>'
+    +'<div class="photo-drop" style="padding:18px" onclick="document.getElementById(\'aip-'+vid+'\').click()">'
+    +'<div style="font-size:22px;margin-bottom:4px">&#128247;</div>'
+    +'<div style="font-size:13px;color:var(--sage-dark);font-weight:500">Select photos to analyse</div></div>'
+    +'<input type="file" id="aip-'+vid+'" style="display:none" multiple accept="image/*" onchange="runSessAI(\''+vid+'\',this.files)">'
+    +'<div id="air-'+vid+'" style="display:none;margin-top:10px">'
+    +'<div style="background:var(--purple-light);border:1px solid #d7b8e8;border-radius:var(--radius-sm);padding:14px">'
+    +'<div style="font-size:11px;font-weight:600;color:var(--purple);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em">&#129504; Analysis Result</div>'
+    +'<div style="font-size:13px;color:var(--charcoal);line-height:1.7;white-space:pre-wrap;max-height:200px;overflow-y:auto" id="ait-'+vid+'"></div></div>'
+    +'<button class="btn btn-purple btn-sm" style="margin-top:8px" onclick="saveAI(\''+vid+'\')">Save this analysis</button>'
+    +'</div></div></div></div></div>';
+}
+
+function toggleSess(vid){document.getElementById('se-'+vid).classList.toggle('open');document.getElementById('chev-'+vid).classList.toggle('open');}
+function showAP(vid){document.getElementById('se-'+vid).classList.add('open');document.getElementById('chev-'+vid).classList.add('open');document.getElementById('aap-'+vid).style.display='block';}
+function stab(vid,t){['p','a'].forEach(x=>{document.getElementById('tp-'+x+'-'+vid).classList.toggle('active',x===t);document.getElementById('tb-'+x+'-'+vid).classList.toggle('active',x===t);});}
+async function runSessAI(vid,files){
+  if(!files||!files.length)return;
+  const res=document.getElementById('air-'+vid);const txt=document.getElementById('ait-'+vid);
+  txt.textContent='Analysing...';res.style.display='block';toast('Analysing...','',40);
+  try{const a=await claudeImg(APROMPT,Array.from(files));txt.textContent=a;window['_ai_'+vid]=a;toast('Done','',100);hideToast();}
+  catch(e){txt.textContent='Failed. Use paste option.';toast('Failed','',80);hideToast();}
+}
+async function saveAI(vid){await persistA(vid,window['_ai_'+vid]||'');}
+async function savePA(vid){const t=document.getElementById('pa-'+vid).value.trim();if(!t){alert('Please paste some text first.');return;}await persistA(vid,t);}
+async function persistA(vid,a){
+  if(!a)return;const v=visits.find(x=>x.VisitID===vid);if(!v)return;v.Analysis=a;toast('Saving...','',50);
+  try{await claude('In Google Spreadsheet ID "'+SHEET_ID+'", Visits sheet, find row where column A="'+vid+'". Update the Analysis column (create if missing) with this text: '+JSON.stringify(a)+'. Reply: DONE',300);toast('Saved','',100);}
+  catch(e){toast('Saved locally','',80);}
+  hideToast();renderProfile(viewId);
+}
+
+/* ── PDF ── */
+function viewPdf(vid){
+  const v=visits.find(x=>x.VisitID===vid);const c=clients.find(x=>x.ClientID===v?.ClientID);if(!v||!c)return;
+  document.getElementById('pdf-modal-title').textContent='Report \u2014 '+c['Full Name']+' \u00b7 Session '+v['Session No'];
+  document.getElementById('pdf-content').innerHTML=buildPdf(c,v);
+  document.getElementById('pdf-modal').classList.add('open');
+}
+function buildPdf(c,v){
+  return'<div class="pdf-clinic">Scalp Studio</div>'
+    +'<div style="font-size:12px;color:var(--text-muted);font-family:\'DM Sans\',sans-serif;margin-top:2px">Scalp &amp; Hair Treatment Analysis Report</div>'
+    +'<div class="pdf-divider"></div>'
+    +'<div class="pdf-info-grid">'
+    +'<div><div class="pif-label">Client</div><div class="pif-value">'+c['Full Name']+'</div></div>'
+    +'<div><div class="pif-label">Client ID</div><div class="pif-value">'+c.ClientID+'</div></div>'
+    +'<div><div class="pif-label">Session</div><div class="pif-value">Session '+(v['Session No']||'?')+'</div></div>'
+    +'<div><div class="pif-label">Date</div><div class="pif-value">'+fmtDate(v.Date)+'</div></div>'
+    +(c.Phone?'<div><div class="pif-label">Phone</div><div class="pif-value">'+c.Phone+'</div></div>':'')
+    +(c.City?'<div><div class="pif-label">City</div><div class="pif-value">'+c.City+'</div></div>':'')
+    +'</div>'
+    +(c.Notes?'<div class="pdf-sec-title">Notes / Allergies</div><div class="pdf-text">'+esc(c.Notes)+'</div>':'')
+    +'<div class="pdf-sec-title">Scalp Analysis</div>'
+    +'<div class="pdf-text">'+esc(v.Analysis||'')+'</div>'
+    +'<div class="pdf-footer-note">Generated by Scalp Studio CRM \u00b7 '+new Date().toLocaleDateString('en-GB')+'</div>';
+}
+function closePdf(){document.getElementById('pdf-modal').classList.remove('open');}
+function printSess(vid){viewPdf(vid);setTimeout(doPrint,400);}
+function doPrint(){
+  const html=document.getElementById('pdf-content').innerHTML;
+  const w=window.open('','_blank');
+  w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Analysis Report</title>'
+    +'<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">'
+    +'<style>body{font-family:\'DM Sans\',sans-serif;color:#2C2C2A;padding:40px;max-width:680px;margin:0 auto}'
+    +'.pdf-clinic{font-family:\'DM Serif Display\',serif;font-size:24px;color:#2D5240}'
+    +'.pdf-divider{height:2px;background:#B8D4C5;margin:12px 0 24px}'
+    +'.pdf-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}'
+    +'.pif-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#888;font-weight:600;margin-bottom:2px}'
+    +'.pif-value{font-size:14px;color:#2C2C2A}'
+    +'.pdf-sec-title{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:#2D5240;font-weight:600;margin-bottom:8px;margin-top:20px}'
+    +'.pdf-text{font-size:14px;line-height:1.8;white-space:pre-wrap;color:#2C2C2A}'
+    +'.pdf-footer-note{margin-top:32px;padding-top:14px;border-top:1px solid #E8E5DF;font-size:11px;color:#888}'
+    +'@media print{body{padding:20px}}</style></head><body>'+html+'</body></html>');
+  w.document.close();w.onload=()=>w.print();
+}
+
+/* ── FOLLOW-UPS ── */
+function renderFollowups(){
+  const ov=clients.filter(c=>isOver(c['Follow-up Date']));
+  const up=clients.filter(c=>isSoon(c['Follow-up Date']));
+  document.getElementById('fu-overdue').innerHTML=ov.length===0?'<div class="empty"><div class="empty-icon">&#10003;</div><div class="empty-title">No overdue follow-ups</div></div>':
+    ov.map(c=>'<div class="fu-row"><div class="avatar">'+ini(c['Full Name'])+'</div><div style="flex:1"><div style="font-weight:500">'+c['Full Name']+'</div><div style="font-size:12px;color:var(--text-muted)">Was due: '+fmtDate(c['Follow-up Date'])+'</div></div><span class="tag tag-red">Overdue</span><button class="btn btn-ghost btn-sm" onclick="go(\'profile\',\''+c.ClientID+'\')" style="margin-left:8px">View</button></div>').join('');
+  document.getElementById('fu-upcoming').innerHTML=up.length===0?'<div class="empty"><div class="empty-icon">&#128197;</div><div class="empty-title">None in the next 30 days</div></div>':
+    up.map(c=>'<div class="fu-row"><div class="avatar">'+ini(c['Full Name'])+'</div><div style="flex:1"><div style="font-weight:500">'+c['Full Name']+'</div><div style="font-size:12px;color:var(--text-muted)">Due: '+fmtDate(c['Follow-up Date'])+'</div></div><span class="tag tag-gold">Upcoming</span><button class="btn btn-ghost btn-sm" onclick="go(\'profile\',\''+c.ClientID+'\')" style="margin-left:8px">View</button></div>').join('');
+}
+
+/* ── REGISTER ── */
+function clearReg(){['r-name','r-phone','r-email','r-birthday','r-city','r-notes'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});document.getElementById('r-gender').value='';}
+async function saveClient(){
+  const name=document.getElementById('r-name').value.trim();
+  const phone=document.getElementById('r-phone').value.trim();
+  if(!name||!phone){alert('Please enter at least the full name and phone number.');return;}
+  const c={ClientID:nextId(),'Full Name':name,Phone:phone,Email:document.getElementById('r-email').value.trim(),Birthday:document.getElementById('r-birthday').value,Gender:document.getElementById('r-gender').value,City:document.getElementById('r-city').value.trim(),Notes:document.getElementById('r-notes').value.trim(),'Follow-up Date':'','Created At':new Date().toISOString().split('T')[0],UpcomingDates:'[]',Protocol:''};
+  toast('Saving client...','',30);
+  try{await claude('Append this row to the "Clients" sheet in Google Spreadsheet ID "'+SHEET_ID+'": '+JSON.stringify(Object.values(c))+'. Reply: DONE',300);clients.push(c);toast('Saved',c.ClientID,100);}
+  catch(e){clients.push(c);toast('Saved locally','',80);}
+  hideToast();go('profile',c.ClientID);
+}
+
+/* ── EDIT ── */
+function openEdit(cid){
+  editId=cid;const c=clients.find(x=>x.ClientID===cid);
+  document.getElementById('e-name').value=c['Full Name']||'';
+  document.getElementById('e-phone').value=c.Phone||'';
+  document.getElementById('e-email').value=c.Email||'';
+  document.getElementById('e-birthday').value=c.Birthday||'';
+  document.getElementById('e-gender').value=c.Gender||'';
+  document.getElementById('e-city').value=c.City||'';
+  document.getElementById('e-notes').value=c.Notes||'';
+  document.getElementById('edit-modal').classList.add('open');
+}
+function closeEdit(){document.getElementById('edit-modal').classList.remove('open');}
+async function saveEdit(){
+  const c=clients.find(x=>x.ClientID===editId);
+  c['Full Name']=document.getElementById('e-name').value.trim();
+  c.Phone=document.getElementById('e-phone').value.trim();
+  c.Email=document.getElementById('e-email').value.trim();
+  c.Birthday=document.getElementById('e-birthday').value;
+  c.Gender=document.getElementById('e-gender').value;
+  c.City=document.getElementById('e-city').value.trim();
+  c.Notes=document.getElementById('e-notes').value.trim();
+  closeEdit();toast('Updating...','',40);
+  try{await claude('In Google Spreadsheet ID "'+SHEET_ID+'", Clients sheet, find row where column A="'+c.ClientID+'" and update entire row with: '+JSON.stringify(Object.values(c))+'. Reply: DONE',300);toast('Updated','',100);}
+  catch(e){toast('Saved locally','',80);}
+  hideToast();renderProfile(editId);
+}
+
+/* ── NEW VISIT ── */
+function prepVisit(){
+  const sel=document.getElementById('v-client');
+  sel.innerHTML='<option value="">Choose a client...</option>';
+  clients.sort((a,b)=>(a['Full Name']||'').localeCompare(b['Full Name']||'')).forEach(c=>{
+    const o=document.createElement('option');o.value=c.ClientID;o.textContent=c['Full Name']+' ('+c.ClientID+')';sel.appendChild(o);
+  });
+  photos=[];
+  document.getElementById('photo-grid').innerHTML='';
+  document.getElementById('v-date').value=todayDMY();
+  const btn=document.getElementById('btn-save-visit');
+  btn.disabled=false;btn.innerHTML='Save &amp; Upload to Google Drive';
+}
+function quickVisit(cid){go('new-visit');setTimeout(()=>{document.getElementById('v-client').value=cid;},80);}
+function onPhotos(e){photos=[...photos,...Array.from(e.target.files)];renderPhotos();}
+function renderPhotos(){
+  document.getElementById('photo-grid').innerHTML=photos.map((f,i)=>
+    '<div class="photo-thumb"><img src="'+URL.createObjectURL(f)+'"><button class="photo-remove" onclick="rmPhoto('+i+')">&#x2715;</button></div>').join('');
+}
+function rmPhoto(i){photos.splice(i,1);renderPhotos();}
+
+async function saveVisit(){
+  const cid=document.getElementById('v-client').value;
+  const dv=document.getElementById('v-date').value.trim();
+  if(!cid){alert('Please select a client.');return;}
+  if(!dv||dv.length<10){alert('Please enter the date in dd/mm/yyyy format.');return;}
+  const c=clients.find(x=>x.ClientID===cid);
+  const sn=cv(cid).length+1;
+  const lbl=c.ClientID+' | '+c['Full Name'];
+  const dp='Clients Photos / '+lbl+' / Session '+sn;
+  const btn=document.getElementById('btn-save-visit');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Uploading...';
+  toast('Creating Drive folder...','Session '+sn,20);
+  try{await claude('In Google Drive folder ID "'+FOLDER_ID+'": 1. Find or create subfolder named exactly: "'+lbl+'" 2. Inside it find or create subfolder named exactly: "Session '+sn+'". Reply: DONE',300);toast('Folder ready','',55);}
+  catch(e){toast('Drive issue','Saving record only...',35);}
+  await sleep(400);
+  const v={VisitID:'V-'+Date.now(),ClientID:cid,'Client Name':c['Full Name'],'Session No':sn,Date:dv,Notes:'','Drive Folder':dp,'Follow-up Date':'',Analysis:''};
+  toast('Writing to Sheet...','',75);
+  try{await claude('Append this row to "Visits" sheet in Google Spreadsheet ID "'+SHEET_ID+'": '+JSON.stringify(Object.values(v))+'. Reply: DONE',300);visits.push(v);toast('Saved! Session '+sn,'',100);}
+  catch(e){visits.push(v);toast('Saved locally','',80);}
+  btn.disabled=false;btn.innerHTML='Save &amp; Upload to Google Drive';
+  hideToast();go('profile',cid);
+}
+
+loadData();
+</script>
+</body>
+</html>
