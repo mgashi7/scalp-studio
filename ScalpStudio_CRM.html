@@ -187,6 +187,12 @@ body{font-family:'DM Sans',sans-serif;color:var(--charcoal);font-size:15px;line-
 .pdf-modal-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.loading-screen{position:fixed;inset:0;background:var(--sage-dark);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;color:#fff}
+.loading-brand{font-family:'DM Serif Display',serif;font-size:32px;margin-bottom:8px}
+.loading-sub{font-size:12px;color:rgba(255,255,255,0.5);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:40px}
+.loading-bar-wrap{width:200px;height:3px;background:rgba(255,255,255,0.15);border-radius:3px}
+.loading-bar{height:3px;background:var(--gold);border-radius:3px;width:0%;transition:width 0.4s}
+.loading-msg{font-size:12px;color:rgba(255,255,255,0.45);margin-top:14px}
 @media(max-width:768px){
   .sidebar{width:60px}.brand-name,.brand-tagline,.nav-item span:not(.nav-icon),.sidebar-foot .drive-status span{display:none}
   .nav-item{padding:14px;justify-content:center}
@@ -198,6 +204,14 @@ body{font-family:'DM Sans',sans-serif;color:var(--charcoal);font-size:15px;line-
 </style>
 </head>
 <body>
+
+<div class="loading-screen" id="loading-screen">
+  <div class="loading-brand">Scalp Studio</div>
+  <div class="loading-sub">Client CRM</div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loading-bar"></div></div>
+  <div class="loading-msg" id="loading-msg">Connecting to Google Drive...</div>
+</div>
+
 <div class="app">
 <aside class="sidebar">
   <div class="brand"><div class="brand-name">Scalp Studio</div><div class="brand-tagline">Client CRM</div></div>
@@ -351,159 +365,222 @@ body{font-family:'DM Sans',sans-serif;color:var(--charcoal);font-size:15px;line-
 </div>
 
 <script>
-const SHEET_ID='14XS6SRcngXDAphUIjfoRcKQUkBF68G8xPniaa0oY4ck';
-const FOLDER_ID='1L5PCsfcLSIOu-G5VyGn-C5mxBWVBkiF9';
-const API='https://api.anthropic.com/v1/messages';
-const MDL='claude-sonnet-4-20250514';
-const MCP=[{type:'url',url:'https://drivemcp.googleapis.com/mcp/v1',name:'gdrive'}];
+var API = 'https://script.google.com/macros/s/AKfycbzo4aBE4pTHEcdyppj_6wIK9BDvmUxRFAafo8vpaR4LY-uf-OdIGK15zWTxc4OOZJe9/exec';
 
-let clients=[],visits=[],photos=[],editId=null,viewId=null;
+var clients = [], visits = [], photos = [], editId = null, viewId = null;
 
-/* ── DATE UTILS ── */
-function todayDMY(){
-  const d=new Date();
-  return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();
-}
-function pad(n){return String(n).padStart(2,'0');}
+function pad(n){ return String(n).padStart(2,'0'); }
+function todayDMY(){ var d=new Date(); return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear(); }
 function fmtInput(el){
-  let v=el.value.replace(/\D/g,'');
-  if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);
-  if(v.length>5)v=v.slice(0,5)+'/'+v.slice(5,9);
+  var v=el.value.replace(/\D/g,'');
+  if(v.length>2) v=v.slice(0,2)+'/'+v.slice(2);
+  if(v.length>5) v=v.slice(0,5)+'/'+v.slice(5,9);
   el.value=v;
 }
 function dmyToISO(s){
-  if(!s)return'';
-  if(/^\d{2}\/\d{2}\/\d{4}$/.test(s)){const[d,m,y]=s.split('/');return y+'-'+m+'-'+d;}
+  if(!s) return '';
+  if(/^\d{2}\/\d{2}\/\d{4}$/.test(s)){ var p=s.split('/'); return p[2]+'-'+p[1]+'-'+p[0]; }
   return s;
 }
 function fmtDate(s){
-  if(!s)return'\u2014';
-  if(/^\d{2}\/\d{2}\/\d{4}$/.test(s))return s;
-  try{
-    const dt=new Date(s);
-    if(isNaN(dt))return s;
-    return pad(dt.getDate())+'/'+pad(dt.getMonth()+1)+'/'+dt.getFullYear();
-  }catch(e){return s;}
+  if(!s) return '\u2014';
+  if(/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  try{ var dt=new Date(s); if(isNaN(dt)) return s; return pad(dt.getDate())+'/'+pad(dt.getMonth()+1)+'/'+dt.getFullYear(); }
+  catch(e){ return s; }
 }
-function isOver(d){if(!d)return false;try{return new Date(dmyToISO(d))<new Date();}catch(e){return false;}}
-function isSoon(d){if(!d)return false;try{const n=new Date(),f=new Date();f.setDate(f.getDate()+30);const dt=new Date(dmyToISO(d));return dt>=n&&dt<=f;}catch(e){return false;}}
-function isFut(d){if(!d)return false;try{return new Date(dmyToISO(d))>=new Date();}catch(e){return false;}}
-
-const ini=n=>(n||'?').split(' ').map(x=>x[0]||'').join('').toUpperCase().slice(0,2);
-const esc=t=>(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const cv=cid=>visits.filter(v=>v.ClientID===cid);
-function nextId(){if(!clients.length)return'CL-0001';return'CL-'+String(Math.max(...clients.map(c=>parseInt((c.ClientID||'0').replace('CL-',''))||0))+1).padStart(4,'0');}
-
-/* ── TOAST ── */
-function toast(ti,ms,pct=0){
-  document.getElementById('t-title').textContent=ti;
-  document.getElementById('t-msg').textContent=ms;
-  document.getElementById('t-fill').style.width=pct+'%';
-  document.getElementById('toast').classList.add('show');
+function isOver(d){ if(!d) return false; try{ return new Date(dmyToISO(d))<new Date(); }catch(e){ return false; } }
+function isSoon(d){
+  if(!d) return false;
+  try{ var n=new Date(),f=new Date(); f.setDate(f.getDate()+30); var dt=new Date(dmyToISO(d)); return dt>=n&&dt<=f; }
+  catch(e){ return false; }
 }
-function hideToast(){setTimeout(()=>document.getElementById('toast').classList.remove('show'),2500);}
+function isFut(d){ if(!d) return false; try{ return new Date(dmyToISO(d))>=new Date(); }catch(e){ return false; } }
+function ini(n){ return (n||'?').split(' ').map(function(x){ return x[0]||''; }).join('').toUpperCase().slice(0,2); }
+function esc(t){ return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+function cv(cid){ return visits.filter(function(v){ return v.ClientID===cid; }); }
+function nextId(){
+  if(!clients.length) return 'CL-0001';
+  var nums=clients.map(function(c){ return parseInt((c.ClientID||'0').replace('CL-',''))||0; });
+  return 'CL-'+String(Math.max.apply(null,nums)+1).padStart(4,'0');
+}
+function q(id){ return document.getElementById(id); }
 
-/* ── NAV ── */
-function go(page,cid){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  document.getElementById('page-'+page).classList.add('active');
-  const T={dashboard:'Dashboard',clients:'Clients',profile:'Client Profile',register:'Register New Client','new-visit':'New Visit',followups:'Follow-ups'};
-  document.getElementById('page-title').textContent=T[page]||page;
-  const NM={dashboard:0,clients:1,'new-visit':2,register:3,followups:4,profile:1};
-  document.querySelectorAll('.nav-item')[NM[page]||0].classList.add('active');
-  const ta=document.getElementById('topbar-actions');ta.innerHTML='';
-  if(page==='dashboard')renderDash();
-  if(page==='clients')renderTable();
-  if(page==='new-visit')prepVisit();
-  if(page==='followups')renderFollowups();
-  if(page==='register')clearReg();
-  if(page==='profile'&&cid){viewId=cid;renderProfile(cid);
-    ta.innerHTML='<button class="btn btn-ghost btn-sm" onclick="openEdit(\''+cid+'\')">Edit</button><button class="btn btn-primary btn-sm" onclick="quickVisit(\''+cid+'\')">+ New Visit</button>';}
+function setLoad(pct,msg){
+  q('loading-bar').style.width=pct+'%';
+  q('loading-msg').textContent=msg;
+}
+function showToast(ti,ms,pct){
+  if(pct===undefined) pct=0;
+  q('t-title').textContent=ti;
+  q('t-msg').textContent=ms||'';
+  q('t-fill').style.width=pct+'%';
+  q('toast').classList.add('show');
+}
+function hideToast(){ setTimeout(function(){ q('toast').classList.remove('show'); },2500); }
+
+async function apiGet(action){
+  var r=await fetch(API+'?action='+action);
+  return r.json();
+}
+async function apiPost(data){
+  var r=await fetch(API,{ method:'POST', body:JSON.stringify(data) });
+  return r.json();
 }
 
-/* ── API ── */
-async function claude(msg,tokens=2000,mcp=true){
-  const b={model:MDL,max_tokens:tokens,messages:[{role:'user',content:msg}]};
-  if(mcp)b.mcp_servers=MCP;
-  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
-  const d=await r.json();
-  return d.content.filter(x=>x.type==='text').map(x=>x.text).join('');
-}
-async function claudeImg(prompt,files){
-  const parts=[];
-  for(const f of files){
-    const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
-    parts.push({type:'image',source:{type:'base64',media_type:f.type||'image/jpeg',data:b64}});
-  }
-  parts.push({type:'text',text:prompt});
-  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:MDL,max_tokens:2000,messages:[{role:'user',content:parts}]})});
-  const d=await r.json();
-  return d.content.filter(x=>x.type==='text').map(x=>x.text).join('');
-}
-const APROMPT='You are a professional scalp and hair treatment specialist. Analyse these scalp photos carefully. Provide a detailed clinical assessment including: 1) Scalp condition and health observations, 2) Hair density and growth patterns, 3) Any visible concerns or issues, 4) Recommended treatment approach, 5) Follow-up recommendations. Be thorough and professional.';
-
-/* ── LOAD ── */
 async function loadData(){
-  toast('Loading...','Connecting to Google Sheet',20);
   try{
-    const txt=await claude('Read Google Spreadsheet ID "'+SHEET_ID+'". Get ALL rows from sheets "Clients" and "Visits". Return ONLY valid JSON: {"clients":[...],"visits":[...]} using header row as keys. No markdown.',5000);
-    const p=JSON.parse(txt.replace(/```json|```/g,'').trim());
-    clients=(p.clients||[]).filter(c=>c.ClientID&&c['Full Name']);
-    visits=(p.visits||[]).filter(v=>v.VisitID&&v.ClientID);
-    toast('Ready',''  ,100);hideToast();
-  }catch(e){clients=[];visits=[];toast('Offline mode','Could not connect',50);hideToast();}
+    setLoad(30,'Loading clients...');
+    var cr=await apiGet('getClients');
+    if(cr.success) clients=cr.data;
+    setLoad(65,'Loading visits...');
+    var vr=await apiGet('getVisits');
+    if(vr.success) visits=vr.data;
+    setLoad(100,'Ready!');
+    await sleep(400);
+  } catch(e){
+    setLoad(100,'Loaded offline');
+    await sleep(600);
+  }
+  q('loading-screen').style.display='none';
   renderDash();
 }
 
-/* ── DASHBOARD ── */
+function go(page, cid){
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+  q('page-'+page).classList.add('active');
+  var titles={ dashboard:'Dashboard', clients:'Clients', profile:'Client Profile', register:'Register New Client', 'new-visit':'New Visit', followups:'Follow-ups' };
+  q('page-title').textContent=titles[page]||page;
+  var nm={ dashboard:0, clients:1, 'new-visit':2, register:3, followups:4, profile:1 };
+  document.querySelectorAll('.nav-item')[nm[page]||0].classList.add('active');
+  var ta=q('topbar-actions'); ta.innerHTML='';
+  if(page==='dashboard') renderDash();
+  if(page==='clients') renderTable();
+  if(page==='new-visit') prepVisit();
+  if(page==='followups') renderFollowups();
+  if(page==='register') clearReg();
+  if(page==='profile'&&cid){
+    viewId=cid; renderProfile(cid);
+    var editBtn=document.createElement('button');
+    editBtn.className='btn btn-ghost btn-sm';
+    editBtn.textContent='Edit';
+    editBtn.onclick=function(){ openEdit(cid); };
+    var visitBtn=document.createElement('button');
+    visitBtn.className='btn btn-primary btn-sm';
+    visitBtn.textContent='+ New Visit';
+    visitBtn.onclick=function(){ quickVisit(cid); };
+    ta.appendChild(editBtn);
+    ta.appendChild(visitBtn);
+  }
+}
+
 function renderDash(){
-  document.getElementById('st-clients').textContent=clients.length;
-  document.getElementById('st-visits').textContent=visits.length;
-  const n=new Date();
-  const mv=visits.filter(v=>{const d=new Date(dmyToISO(v.Date||''));return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();});
-  document.getElementById('st-month').textContent=mv.length;
-  document.getElementById('st-month-name').textContent=n.toLocaleString('default',{month:'long'});
-  const ov=clients.filter(c=>isOver(c['Follow-up Date']));
-  document.getElementById('st-overdue').textContent=ov.length;
-  const recent=[...visits].sort((a,b)=>new Date(dmyToISO(b.Date||''))-new Date(dmyToISO(a.Date||''))).slice(0,5);
-  document.getElementById('dash-recent').innerHTML=recent.length===0?'<div class="empty"><div class="empty-icon">&#128203;</div><div class="empty-title">No visits yet</div></div>':
-    recent.map(v=>{const c=clients.find(x=>x.ClientID===v.ClientID);if(!c)return'';
-      return'<div class="list-row" onclick="go(\'profile\',\''+c.ClientID+'\')"><div class="avatar">'+ini(c['Full Name'])+'</div><div><div class="row-name">'+c['Full Name']+'</div><div class="row-sub">'+fmtDate(v.Date)+' &middot; Session '+(v['Session No']||'?')+'</div></div><span class="badge badge-sage" style="margin-left:auto">&#10003;</span></div>';}).join('');
-  document.getElementById('dash-overdue').innerHTML=ov.length===0?'<div class="empty"><div class="empty-icon">&#10003;</div><div class="empty-title">All clear</div></div>':
-    ov.map(c=>'<div class="list-row" onclick="go(\'profile\',\''+c.ClientID+'\')"><div class="avatar">'+ini(c['Full Name'])+'</div><div><div class="row-name">'+c['Full Name']+'</div><div class="row-sub">Due: '+fmtDate(c['Follow-up Date'])+'</div></div><span class="badge badge-red">Overdue</span></div>').join('');
+  q('st-clients').textContent=clients.length;
+  q('st-visits').textContent=visits.length;
+  var n=new Date();
+  var mv=visits.filter(function(v){
+    var d=new Date(dmyToISO(v.Date||''));
+    return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear();
+  });
+  q('st-month').textContent=mv.length;
+  q('st-month-name').textContent=n.toLocaleString('default',{month:'long'});
+  var ov=clients.filter(function(c){ return isOver(c['Follow-up Date']); });
+  q('st-overdue').textContent=ov.length;
+
+  var recent=[].concat(visits).sort(function(a,b){
+    return new Date(dmyToISO(b.Date||''))-new Date(dmyToISO(a.Date||''));
+  }).slice(0,5);
+
+  var recentEl=q('dash-recent');
+  if(!recent.length){
+    recentEl.innerHTML='<div class="empty"><div class="empty-icon">&#128203;</div><div class="empty-title">No visits yet</div></div>';
+  } else {
+    recentEl.innerHTML='';
+    recent.forEach(function(v){
+      var c=clients.find(function(x){ return x.ClientID===v.ClientID; });
+      if(!c) return;
+      var row=document.createElement('div');
+      row.className='list-row';
+      row.innerHTML='<div class="avatar">'+ini(c['Full Name'])+'</div>'
+        +'<div><div class="row-name">'+c['Full Name']+'</div>'
+        +'<div class="row-sub">'+fmtDate(v.Date)+' &middot; Session '+(v['Session No']||'?')+'</div></div>'
+        +'<span class="badge badge-sage" style="margin-left:auto">&#10003;</span>';
+      row.onclick=function(){ go('profile',c.ClientID); };
+      recentEl.appendChild(row);
+    });
+  }
+
+  var ovEl=q('dash-overdue');
+  if(!ov.length){
+    ovEl.innerHTML='<div class="empty"><div class="empty-icon">&#10003;</div><div class="empty-title">All clear</div></div>';
+  } else {
+    ovEl.innerHTML='';
+    ov.forEach(function(c){
+      var row=document.createElement('div');
+      row.className='list-row';
+      row.innerHTML='<div class="avatar">'+ini(c['Full Name'])+'</div>'
+        +'<div><div class="row-name">'+c['Full Name']+'</div>'
+        +'<div class="row-sub">Due: '+fmtDate(c['Follow-up Date'])+'</div></div>'
+        +'<span class="badge badge-red">Overdue</span>';
+      row.onclick=function(){ go('profile',c.ClientID); };
+      ovEl.appendChild(row);
+    });
+  }
 }
 
-/* ── TABLE ── */
 function renderTable(){
-  const q=(document.getElementById('client-search')?.value||'').toLowerCase();
-  const fl=clients.filter(c=>(c['Full Name']||'').toLowerCase().includes(q)||(c.Phone||'').includes(q)||(c.City||'').toLowerCase().includes(q));
-  const el=document.getElementById('clients-tbody');
-  if(!fl.length){el.innerHTML='<div class="empty"><div class="empty-icon">&#128100;</div><div class="empty-title">No clients yet</div><div class="empty-sub"><button class="btn btn-primary btn-sm" onclick="go(\'register\')" style="margin-top:10px">Register first client</button></div></div>';return;}
-  el.innerHTML=fl.map(c=>{
-    const n=cv(c.ClientID).length,fu=c['Follow-up Date'];
-    const fb=isOver(fu)?'<span class="badge badge-red">Overdue</span>':isSoon(fu)?'<span class="badge badge-gold">Upcoming</span>':fu?'<span style="font-size:12px;color:var(--text-muted)">'+fmtDate(fu)+'</span>':'<span style="font-size:12px;color:var(--text-muted)">&mdash;</span>';
-    return'<div class="table-row" onclick="go(\'profile\',\''+c.ClientID+'\')">'
-      +'<div class="client-cell"><div class="avatar">'+ini(c['Full Name'])+'</div><div><div class="cell-name">'+c['Full Name']+'</div><div class="cell-id">'+c.ClientID+'</div></div></div>'
-      +'<div class="cell-text">'+(c.Phone||'&mdash;')+'</div><div class="cell-text">'+(c.City||'&mdash;')+'</div>'
-      +'<div style="font-size:14px;font-weight:500">'+n+'</div><div>'+fb+'</div></div>';}).join('');
+  var searchEl=q('client-search');
+  var sq=searchEl ? searchEl.value.toLowerCase() : '';
+  var fl=clients.filter(function(c){
+    return (c['Full Name']||'').toLowerCase().includes(sq)
+      ||(c.Phone||'').includes(sq)
+      ||(c.City||'').toLowerCase().includes(sq);
+  });
+  var el=q('clients-tbody');
+  if(!fl.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">&#128100;</div><div class="empty-title">No clients yet</div>'
+      +'<div class="empty-sub"><button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="go(\'register\')">Register first client</button></div></div>';
+    return;
+  }
+  el.innerHTML='';
+  fl.forEach(function(c){
+    var n=cv(c.ClientID).length;
+    var fu=c['Follow-up Date'];
+    var fuHtml=isOver(fu)?'<span class="badge badge-red">Overdue</span>'
+      :isSoon(fu)?'<span class="badge badge-gold">Upcoming</span>'
+      :fu?'<span style="font-size:12px;color:var(--text-muted)">'+fmtDate(fu)+'</span>'
+      :'<span style="font-size:12px;color:var(--text-muted)">&mdash;</span>';
+    var row=document.createElement('div');
+    row.className='table-row';
+    row.innerHTML='<div class="client-cell"><div class="avatar">'+ini(c['Full Name'])+'</div>'
+      +'<div><div class="cell-name">'+c['Full Name']+'</div><div class="cell-id">'+c.ClientID+'</div></div></div>'
+      +'<div class="cell-text">'+(c.Phone||'&mdash;')+'</div>'
+      +'<div class="cell-text">'+(c.City||'&mdash;')+'</div>'
+      +'<div style="font-size:14px;font-weight:500">'+n+'</div>'
+      +'<div>'+fuHtml+'</div>';
+    row.onclick=function(){ go('profile',c.ClientID); };
+    el.appendChild(row);
+  });
 }
 
-/* ── PROFILE ── */
 function renderProfile(cid){
-  const c=clients.find(x=>x.ClientID===cid);if(!c)return;
-  const sess=cv(cid).sort((a,b)=>new Date(dmyToISO(b.Date||''))-new Date(dmyToISO(a.Date||'')));
-  const fu=c['Follow-up Date'];
-  let upcoming=[];try{upcoming=JSON.parse(c.UpcomingDates||'[]');}catch(e){upcoming=[];}
-  upcoming=upcoming.filter(u=>isFut(u.date)).sort((a,b)=>new Date(dmyToISO(a.date))-new Date(dmyToISO(b.date)));
-  const proto=c.Protocol||'';
+  var c=clients.find(function(x){ return x.ClientID===cid; });
+  if(!c) return;
+  var sess=cv(cid).sort(function(a,b){
+    return new Date(dmyToISO(b.Date||''))-new Date(dmyToISO(a.Date||''));
+  });
+  var fu=c['Follow-up Date'];
+  var upcoming=[];
+  try{ upcoming=JSON.parse(c.UpcomingDates||'[]'); }catch(e){ upcoming=[]; }
+  upcoming=upcoming.filter(function(u){ return isFut(u.date); }).sort(function(a,b){
+    return new Date(dmyToISO(a.date))-new Date(dmyToISO(b.date));
+  });
+  var proto=c.Protocol||'';
 
-  document.getElementById('profile-content').innerHTML=
-    '<div class="profile-header">'
+  var html='<div class="profile-header">'
     +'<div class="profile-avatar">'+ini(c['Full Name'])+'</div>'
-    +'<div>'
-    +'<div class="profile-name">'+c['Full Name']+'</div>'
+    +'<div><div class="profile-name">'+c['Full Name']+'</div>'
     +'<div class="profile-id">'+c.ClientID+'</div>'
     +'<div class="profile-meta">'
     +(c.Phone?'<span class="meta-item">&#128222; '+c.Phone+'</span>':'')
@@ -513,10 +590,9 @@ function renderProfile(cid){
     +'</div></div>'
     +'<div class="profile-stats">'
     +'<div><div class="pstat-val">'+sess.length+'</div><div class="pstat-label">Sessions</div></div>'
-    +(fu?'<div><div class="pstat-val" style="font-size:16px;'+(isOver(fu)?'color:var(--red)':'')+'">'+fmtDate(fu)+'</div><div class="pstat-label">'+(isOver(fu)?'&#9888; Overdue':'Follow-up')+'</div></div>':'')
+    +(fu?'<div><div class="pstat-val" style="font-size:16px;'+(isOver(fu)?'color:var(--red)':'')+'">'+fmtDate(fu)+'</div>'
+      +'<div class="pstat-label">'+(isOver(fu)?'&#9888; Overdue':'Follow-up')+'</div></div>':'')
     +'</div></div>'
-
-    /* details + sessions */
     +'<div class="profile-2col">'
     +'<div class="card"><div class="card-header"><span class="card-title">Client Details</span></div>'
     +'<div class="info-grid">'
@@ -526,115 +602,180 @@ function renderProfile(cid){
     +'<div class="info-field"><div class="i-label">Gender</div><div class="i-value">'+(c.Gender||'&mdash;')+'</div></div>'
     +'<div class="info-field"><div class="i-label">Birthday</div><div class="i-value">'+fmtDate(c.Birthday)+'</div></div>'
     +'<div class="info-field"><div class="i-label">Client since</div><div class="i-value">'+fmtDate(c['Created At'])+'</div></div>'
-    +(c.Notes?'<div class="info-field" style="grid-column:1/-1"><div class="i-label">Notes / Allergies</div><div class="i-value">'+c.Notes+'</div></div>':'')
+    +(c.Notes?'<div class="info-field" style="grid-column:1/-1"><div class="i-label">Notes / Allergies</div><div class="i-value">'+esc(c.Notes)+'</div></div>':'')
     +'</div></div>'
-
-    +'<div class="card"><div class="card-header"><span class="card-title">Visit History</span><span style="font-size:12px;color:var(--text-muted)">'+sess.length+' session'+(sess.length!==1?'s':'')+'</span></div>'
+    +'<div class="card"><div class="card-header"><span class="card-title">Visit History</span>'
+    +'<span style="font-size:12px;color:var(--text-muted)">'+sess.length+' session'+(sess.length!==1?'s':'')+'</span></div>'
     +'<div id="sess-list">'
-    +(sess.length===0?'<div class="empty"><div class="empty-icon">&#128247;</div><div class="empty-title">No visits yet</div></div>':sess.map(v=>sessItem(v,c)).join(''))
+    +(sess.length===0?'<div class="empty"><div class="empty-icon">&#128247;</div><div class="empty-title">No visits yet</div></div>'
+      :sess.map(function(v){ return sessItem(v,c); }).join(''))
     +'</div></div></div>'
-
-    /* upcoming dates */
     +'<div class="profile-full"><div class="card">'
     +'<div class="card-header"><span class="card-title">&#128197; Upcoming Treatment Dates</span>'
-    +'<button class="btn btn-ghost btn-sm" onclick="toggleAddUp(\''+cid+'\')">+ Add date</button></div>'
+    +'<button class="btn btn-ghost btn-sm" id="add-up-btn-'+cid+'">+ Add date</button></div>'
     +'<div id="up-list-'+cid+'">'
-    +(upcoming.length===0?'<div class="empty"><div class="empty-icon">&#128197;</div><div class="empty-title">No upcoming dates yet</div><div class="empty-sub">Add the next treatment date</div></div>':upcoming.map((u,i)=>upItem(u,i,cid)).join(''))
+    +(upcoming.length===0
+      ?'<div class="empty"><div class="empty-icon">&#128197;</div><div class="empty-title">No upcoming dates yet</div></div>'
+      :upcoming.map(function(u,i){ return upItem(u,i,cid); }).join(''))
     +'</div>'
     +'<div class="add-upcoming-form" id="auf-'+cid+'">'
     +'<div class="add-upcoming-row">'
-    +'<div><label class="field-label">Date (dd/mm/yyyy)</label><input class="field-input" id="nud-'+cid+'" type="text" placeholder="dd/mm/yyyy" maxlength="10" oninput="fmtInput(this)" style="width:160px"></div>'
-    +'<div style="flex:1"><label class="field-label">Note (optional)</label><input class="field-input" id="nun-'+cid+'" type="text" placeholder="e.g. Follow-up session"></div>'
-    +'<div><button class="btn btn-primary btn-sm" onclick="addUpDate(\''+cid+'\')">Save</button>'
-    +' <button class="btn btn-ghost btn-sm" onclick="toggleAddUp(\''+cid+'\')">Cancel</button></div>'
+    +'<div><label class="field-label">Date (dd/mm/yyyy)</label>'
+    +'<input class="field-input" id="nud-'+cid+'" type="text" placeholder="dd/mm/yyyy" maxlength="10" oninput="fmtInput(this)" style="width:160px"></div>'
+    +'<div style="flex:1"><label class="field-label">Note (optional)</label>'
+    +'<input class="field-input" id="nun-'+cid+'" type="text" placeholder="e.g. Follow-up session"></div>'
+    +'<div id="auf-btns-'+cid+'"></div>'
     +'</div></div></div></div>'
-
-    /* protocol */
     +'<div class="profile-full"><div class="card">'
     +'<div class="card-header"><span class="card-title">&#129380; Today\'s Treatment Protocol</span>'
-    +'<button class="btn btn-ghost btn-sm" id="pbtn-'+cid+'" onclick="editProto(\''+cid+'\')">Edit</button></div>'
+    +'<button class="btn btn-ghost btn-sm" id="pbtn-'+cid+'">Edit</button></div>'
     +'<div class="protocol-box" id="pdisp-'+cid+'">'
-    +(proto?'<div class="protocol-display">'+esc(proto)+'</div>':'<div class="protocol-empty">No protocol saved yet. Tap Edit to add today\'s treatment protocol.</div>')
+    +(proto?'<div class="protocol-display">'+esc(proto)+'</div>'
+      :'<div class="protocol-empty">No protocol saved yet. Tap Edit to add.</div>')
     +'</div>'
     +'<div class="protocol-box" id="pedit-'+cid+'" style="display:none">'
     +'<textarea class="protocol-edit-area" id="pta-'+cid+'">'+esc(proto)+'</textarea>'
-    +'<div style="display:flex;gap:8px;margin-top:10px">'
-    +'<button class="btn btn-primary btn-sm" onclick="saveProto(\''+cid+'\')">Save Protocol</button>'
-    +'<button class="btn btn-ghost btn-sm" onclick="cancelProto(\''+cid+'\')">Cancel</button>'
-    +'</div></div></div></div>';
+    +'<div style="display:flex;gap:8px;margin-top:10px" id="proto-btns-'+cid+'"></div>'
+    +'</div></div></div>';
+
+  q('profile-content').innerHTML=html;
+
+  // Wire up buttons using JS (avoids inline onclick quoting issues)
+  var addUpBtn=q('add-up-btn-'+cid);
+  if(addUpBtn) addUpBtn.onclick=function(){ toggleAddUp(cid); };
+
+  var aufBtns=q('auf-btns-'+cid);
+  if(aufBtns){
+    var saveUpBtn=document.createElement('button');
+    saveUpBtn.className='btn btn-primary btn-sm';
+    saveUpBtn.textContent='Save';
+    saveUpBtn.onclick=function(){ addUpDate(cid); };
+    var cancelUpBtn=document.createElement('button');
+    cancelUpBtn.className='btn btn-ghost btn-sm';
+    cancelUpBtn.style.marginLeft='6px';
+    cancelUpBtn.textContent='Cancel';
+    cancelUpBtn.onclick=function(){ toggleAddUp(cid); };
+    aufBtns.appendChild(saveUpBtn);
+    aufBtns.appendChild(cancelUpBtn);
+  }
+
+  var pBtn=q('pbtn-'+cid);
+  if(pBtn) pBtn.onclick=function(){ editProto(cid); };
+
+  var protoBtns=q('proto-btns-'+cid);
+  if(protoBtns){
+    var saveP=document.createElement('button');
+    saveP.className='btn btn-primary btn-sm';
+    saveP.textContent='Save Protocol';
+    saveP.onclick=function(){ saveProto(cid); };
+    var cancelP=document.createElement('button');
+    cancelP.className='btn btn-ghost btn-sm';
+    cancelP.style.marginLeft='6px';
+    cancelP.textContent='Cancel';
+    cancelP.onclick=function(){ cancelProto(cid); };
+    protoBtns.appendChild(saveP);
+    protoBtns.appendChild(cancelP);
+  }
 }
 
 function upItem(u,i,cid){
-  const parts=fmtDate(u.date).split('/');
-  const day=parts[0]||'--';
-  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const mon=parts[1]?months[parseInt(parts[1])-1]||'':'--';
-  return'<div class="upcoming-item">'
+  var parts=fmtDate(u.date).split('/');
+  var day=parts[0]||'--';
+  var mons=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var mon=parts[1]?mons[parseInt(parts[1])-1]||'':'--';
+  return '<div class="upcoming-item" id="up-'+cid+'-'+i+'">'
     +'<div class="udb"><div class="udb-day">'+day+'</div><div class="udb-mon">'+mon+'</div></div>'
     +'<div style="flex:1"><div style="font-weight:500;font-size:14px">'+(u.note||'Treatment session')+'</div>'
     +'<div style="font-size:12px;color:var(--text-muted)">'+fmtDate(u.date)+'</div></div>'
-    +'<button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:#f5c6c6" onclick="removeUp(\''+cid+'\','+i+')">Remove</button>'
+    +'<button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:#f5c6c6" '
+    +'onclick="removeUp(\''+cid+'\','+i+')">Remove</button>'
     +'</div>';
 }
 
 function toggleAddUp(cid){
-  const f=document.getElementById('auf-'+cid);
+  var f=q('auf-'+cid);
   f.classList.toggle('open');
-  if(f.classList.contains('open')){document.getElementById('nud-'+cid).value='';document.getElementById('nun-'+cid).value='';document.getElementById('nud-'+cid).focus();}
-}
-async function addUpDate(cid){
-  const dv=document.getElementById('nud-'+cid).value.trim();
-  const nv=document.getElementById('nun-'+cid).value.trim();
-  if(!dv||dv.length<10){alert('Please enter a valid date in dd/mm/yyyy format.');return;}
-  const c=clients.find(x=>x.ClientID===cid);
-  let up=[];try{up=JSON.parse(c.UpcomingDates||'[]');}catch(e){up=[];}
-  up.push({date:dv,note:nv||'Treatment session'});
-  c.UpcomingDates=JSON.stringify(up);
-  toast('Saving date...','',40);
-  try{await claude('In Google Spreadsheet ID "'+SHEET_ID+'", Clients sheet, find row where column A="'+cid+'". Update the UpcomingDates column (create if missing) with this value: '+JSON.stringify(c.UpcomingDates)+'. Reply: DONE',300);toast('Saved','' ,100);}
-  catch(e){toast('Saved locally','',80);}
-  hideToast();renderProfile(cid);
-}
-async function removeUp(cid,idx){
-  const c=clients.find(x=>x.ClientID===cid);
-  let up=[];try{up=JSON.parse(c.UpcomingDates||'[]');}catch(e){up=[];}
-  up.splice(idx,1);c.UpcomingDates=JSON.stringify(up);
-  toast('Removing...','',40);
-  try{await claude('In Google Spreadsheet ID "'+SHEET_ID+'", Clients sheet, find row where column A="'+cid+'". Update the UpcomingDates column with: '+JSON.stringify(c.UpcomingDates)+'. Reply: DONE',300);toast('Removed','',100);}
-  catch(e){toast('Saved locally','',80);}
-  hideToast();renderProfile(cid);
-}
-function editProto(cid){document.getElementById('pdisp-'+cid).style.display='none';document.getElementById('pedit-'+cid).style.display='block';document.getElementById('pbtn-'+cid).style.display='none';document.getElementById('pta-'+cid).focus();}
-function cancelProto(cid){document.getElementById('pdisp-'+cid).style.display='';document.getElementById('pedit-'+cid).style.display='none';document.getElementById('pbtn-'+cid).style.display='';}
-async function saveProto(cid){
-  const txt=document.getElementById('pta-'+cid).value.trim();
-  const c=clients.find(x=>x.ClientID===cid);c.Protocol=txt;
-  toast('Saving protocol...','',50);
-  try{await claude('In Google Spreadsheet ID "'+SHEET_ID+'", Clients sheet, find row where column A="'+cid+'". Update the Protocol column (create if missing) with this text: '+JSON.stringify(txt)+'. Reply: DONE',300);toast('Protocol saved','',100);}
-  catch(e){toast('Saved locally','',80);}
-  hideToast();renderProfile(cid);
+  if(f.classList.contains('open')){
+    q('nud-'+cid).value='';
+    q('nun-'+cid).value='';
+    q('nud-'+cid).focus();
+  }
 }
 
-/* ── SESSIONS ── */
+async function addUpDate(cid){
+  var dv=q('nud-'+cid).value.trim();
+  var nv=q('nun-'+cid).value.trim();
+  if(!dv||dv.length<10){ alert('Please enter a valid date in dd/mm/yyyy format.'); return; }
+  var c=clients.find(function(x){ return x.ClientID===cid; });
+  var up=[];
+  try{ up=JSON.parse(c.UpcomingDates||'[]'); }catch(e){ up=[]; }
+  up.push({date:dv,note:nv||'Treatment session'});
+  c.UpcomingDates=JSON.stringify(up);
+  showToast('Saving date...','',40);
+  try{ await apiPost({action:'saveUpcomingDates',clientId:cid,dates:c.UpcomingDates}); showToast('Saved','',100); }
+  catch(e){ showToast('Saved locally','',80); }
+  hideToast(); renderProfile(cid);
+}
+
+async function removeUp(cid,idx){
+  var c=clients.find(function(x){ return x.ClientID===cid; });
+  var up=[];
+  try{ up=JSON.parse(c.UpcomingDates||'[]'); }catch(e){ up=[]; }
+  up.splice(idx,1);
+  c.UpcomingDates=JSON.stringify(up);
+  showToast('Removing...','',40);
+  try{ await apiPost({action:'saveUpcomingDates',clientId:cid,dates:c.UpcomingDates}); showToast('Removed','',100); }
+  catch(e){ showToast('Saved locally','',80); }
+  hideToast(); renderProfile(cid);
+}
+
+function editProto(cid){
+  q('pdisp-'+cid).style.display='none';
+  q('pedit-'+cid).style.display='block';
+  q('pbtn-'+cid).style.display='none';
+  q('pta-'+cid).focus();
+}
+function cancelProto(cid){
+  q('pdisp-'+cid).style.display='';
+  q('pedit-'+cid).style.display='none';
+  q('pbtn-'+cid).style.display='';
+}
+async function saveProto(cid){
+  var txt=q('pta-'+cid).value.trim();
+  var c=clients.find(function(x){ return x.ClientID===cid; });
+  c.Protocol=txt;
+  showToast('Saving protocol...','',50);
+  try{ await apiPost({action:'saveProtocol',clientId:cid,protocol:txt}); showToast('Protocol saved','',100); }
+  catch(e){ showToast('Saved locally','',80); }
+  hideToast(); renderProfile(cid);
+}
+
 function sessItem(v,c){
-  const vid=v.VisitID||'';
-  const hasA=!!(v.Analysis&&v.Analysis.trim());
-  return'<div class="session-item" id="si-'+vid+'">'
-    +'<div class="session-row" onclick="toggleSess(\''+vid+'\')"><div class="session-num">S'+(v['Session No']||'?')+'</div>'
-    +'<div style="flex:1"><div style="font-weight:500;font-size:14px">Session '+(v['Session No']||'?')+'</div>'
+  var vid=v.VisitID||'';
+  var hasA=!!(v.Analysis&&v.Analysis.trim());
+  return '<div class="session-item" id="si-'+vid+'">'
+    +'<div class="session-row" onclick="toggleSess(\''+vid+'\')">'
+    +'<div class="session-num">S'+(v['Session No']||'?')+'</div>'
+    +'<div style="flex:1">'
+    +'<div style="font-weight:500;font-size:14px">Session '+(v['Session No']||'?')+'</div>'
     +'<div style="font-size:12px;color:var(--text-muted)">'+fmtDate(v.Date)+(v.Notes?' &middot; '+v.Notes:'')+'</div>'
     +(v['Drive Folder']?'<div class="session-path">&#128193; '+v['Drive Folder']+'</div>':'')
-    +'</div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
+    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
     +(hasA?'<span class="badge badge-purple">&#129504; Analysis</span>':'')
     +'<span class="badge badge-green">&#10003; Drive</span>'
-    +'<span class="chevron" id="chev-'+vid+'">&#9662;</span></div></div>'
+    +'<span class="chevron" id="chev-'+vid+'">&#9662;</span>'
+    +'</div></div>'
     +'<div class="session-expand" id="se-'+vid+'">'
     +'<div style="padding:14px 20px 0">'
-    +(hasA?'<div class="analysis-box"><div class="analysis-header"><span class="analysis-title">&#129504; Scalp Analysis Report</span></div>'
-      +'<div class="analysis-body">'+esc(v.Analysis)+'</div>'
-      +'<div class="analysis-actions"><button class="btn btn-purple btn-sm" onclick="viewPdf(\''+vid+'\')">View as PDF</button>'
-      +' <button class="btn btn-ghost btn-sm" onclick="printSess(\''+vid+'\')">&#128424; Print</button></div></div>'
-      :'<div style="font-size:13px;color:var(--text-muted);padding:0 0 12px">No analysis saved. <span style="color:var(--purple);cursor:pointer;text-decoration:underline" onclick="showAP(\''+vid+'\')">Add one &rarr;</span></div>')
+    +(hasA
+      ?'<div class="analysis-box">'
+        +'<div class="analysis-header"><span class="analysis-title">&#129504; Scalp Analysis Report</span></div>'
+        +'<div class="analysis-body">'+esc(v.Analysis)+'</div>'
+        +'<div class="analysis-actions" id="aa-'+vid+'"></div>'
+        +'</div>'
+      :'<div style="font-size:13px;color:var(--text-muted);padding:0 0 12px">No analysis saved. '
+        +'<span style="color:var(--purple);cursor:pointer;text-decoration:underline" onclick="showAP(\''+vid+'\')">Add one &rarr;</span></div>')
     +'</div>'
     +'<div class="add-analysis-panel" id="aap-'+vid+'" style="display:none;margin:0 20px 14px">'
     +'<div class="tab-bar">'
@@ -644,50 +785,145 @@ function sessItem(v,c){
     +'<div class="tab-pane active" id="tp-p-'+vid+'">'
     +'<label class="field-label">Paste the ChatGPT analysis</label>'
     +'<textarea class="field-textarea" id="pa-'+vid+'" placeholder="Paste full analysis here..." style="min-height:100px"></textarea>'
-    +'<button class="btn btn-purple btn-sm" style="margin-top:8px" onclick="savePA(\''+vid+'\')">Save Analysis</button>'
+    +'<div id="pa-btn-'+vid+'" style="margin-top:8px"></div>'
     +'</div>'
     +'<div class="tab-pane" id="tp-a-'+vid+'">'
     +'<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">Upload scalp photos and AI will analyse them.</div>'
     +'<div class="photo-drop" style="padding:18px" onclick="document.getElementById(\'aip-'+vid+'\').click()">'
     +'<div style="font-size:22px;margin-bottom:4px">&#128247;</div>'
-    +'<div style="font-size:13px;color:var(--sage-dark);font-weight:500">Select photos to analyse</div></div>'
+    +'<div style="font-size:13px;color:var(--sage-dark);font-weight:500">Select photos to analyse</div>'
+    +'</div>'
     +'<input type="file" id="aip-'+vid+'" style="display:none" multiple accept="image/*" onchange="runSessAI(\''+vid+'\',this.files)">'
     +'<div id="air-'+vid+'" style="display:none;margin-top:10px">'
     +'<div style="background:var(--purple-light);border:1px solid #d7b8e8;border-radius:var(--radius-sm);padding:14px">'
     +'<div style="font-size:11px;font-weight:600;color:var(--purple);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.06em">&#129504; Analysis Result</div>'
-    +'<div style="font-size:13px;color:var(--charcoal);line-height:1.7;white-space:pre-wrap;max-height:200px;overflow-y:auto" id="ait-'+vid+'"></div></div>'
-    +'<button class="btn btn-purple btn-sm" style="margin-top:8px" onclick="saveAI(\''+vid+'\')">Save this analysis</button>'
+    +'<div style="font-size:13px;color:var(--charcoal);line-height:1.7;white-space:pre-wrap;max-height:200px;overflow-y:auto" id="ait-'+vid+'"></div>'
+    +'</div>'
+    +'<div id="ai-save-btn-'+vid+'" style="margin-top:8px"></div>'
     +'</div></div></div></div></div>';
 }
 
-function toggleSess(vid){document.getElementById('se-'+vid).classList.toggle('open');document.getElementById('chev-'+vid).classList.toggle('open');}
-function showAP(vid){document.getElementById('se-'+vid).classList.add('open');document.getElementById('chev-'+vid).classList.add('open');document.getElementById('aap-'+vid).style.display='block';}
-function stab(vid,t){['p','a'].forEach(x=>{document.getElementById('tp-'+x+'-'+vid).classList.toggle('active',x===t);document.getElementById('tb-'+x+'-'+vid).classList.toggle('active',x===t);});}
-async function runSessAI(vid,files){
-  if(!files||!files.length)return;
-  const res=document.getElementById('air-'+vid);const txt=document.getElementById('ait-'+vid);
-  txt.textContent='Analysing...';res.style.display='block';toast('Analysing...','',40);
-  try{const a=await claudeImg(APROMPT,Array.from(files));txt.textContent=a;window['_ai_'+vid]=a;toast('Done','',100);hideToast();}
-  catch(e){txt.textContent='Failed. Use paste option.';toast('Failed','',80);hideToast();}
-}
-async function saveAI(vid){await persistA(vid,window['_ai_'+vid]||'');}
-async function savePA(vid){const t=document.getElementById('pa-'+vid).value.trim();if(!t){alert('Please paste some text first.');return;}await persistA(vid,t);}
-async function persistA(vid,a){
-  if(!a)return;const v=visits.find(x=>x.VisitID===vid);if(!v)return;v.Analysis=a;toast('Saving...','',50);
-  try{await claude('In Google Spreadsheet ID "'+SHEET_ID+'", Visits sheet, find row where column A="'+vid+'". Update the Analysis column (create if missing) with this text: '+JSON.stringify(a)+'. Reply: DONE',300);toast('Saved','',100);}
-  catch(e){toast('Saved locally','',80);}
-  hideToast();renderProfile(viewId);
+function wireSessButtons(vid, c){
+  // Wire analysis action buttons
+  var aaEl=document.getElementById('aa-'+vid);
+  if(aaEl){
+    var pdfBtn=document.createElement('button');
+    pdfBtn.className='btn btn-purple btn-sm';
+    pdfBtn.textContent='View as PDF';
+    pdfBtn.onclick=function(){ viewPdf(vid); };
+    var printBtn=document.createElement('button');
+    printBtn.className='btn btn-ghost btn-sm';
+    printBtn.textContent='Print';
+    printBtn.onclick=function(){ printSess(vid); };
+    aaEl.appendChild(pdfBtn);
+    aaEl.appendChild(printBtn);
+  }
+  // Wire paste save button
+  var paBtnEl=document.getElementById('pa-btn-'+vid);
+  if(paBtnEl){
+    var saveBtn=document.createElement('button');
+    saveBtn.className='btn btn-purple btn-sm';
+    saveBtn.textContent='Save Analysis';
+    saveBtn.onclick=function(){ savePA(vid); };
+    paBtnEl.appendChild(saveBtn);
+  }
+  // Wire AI save button
+  var aiSaveEl=document.getElementById('ai-save-btn-'+vid);
+  if(aiSaveEl){
+    var aiBtn=document.createElement('button');
+    aiBtn.className='btn btn-purple btn-sm';
+    aiBtn.textContent='Save this analysis';
+    aiBtn.onclick=function(){ saveAI(vid); };
+    aiSaveEl.appendChild(aiBtn);
+  }
 }
 
-/* ── PDF ── */
+// Call wireSessButtons after renderProfile sets innerHTML
+var _origRenderProfile=renderProfile;
+renderProfile=function(cid){
+  _origRenderProfile(cid);
+  var sess=cv(cid);
+  sess.forEach(function(v){ wireSessButtons(v.VisitID||'', null); });
+};
+
+function toggleSess(vid){
+  document.getElementById('se-'+vid).classList.toggle('open');
+  document.getElementById('chev-'+vid).classList.toggle('open');
+}
+function showAP(vid){
+  document.getElementById('se-'+vid).classList.add('open');
+  document.getElementById('chev-'+vid).classList.add('open');
+  document.getElementById('aap-'+vid).style.display='block';
+}
+function stab(vid,t){
+  ['p','a'].forEach(function(x){
+    document.getElementById('tp-'+x+'-'+vid).classList.toggle('active',x===t);
+    document.getElementById('tb-'+x+'-'+vid).classList.toggle('active',x===t);
+  });
+}
+
+async function runSessAI(vid, files){
+  if(!files||!files.length) return;
+  var res=document.getElementById('air-'+vid);
+  var txt=document.getElementById('ait-'+vid);
+  txt.textContent='Analysing...'; res.style.display='block';
+  showToast('Analysing photos...','',40);
+  try{
+    var parts=[];
+    for(var i=0;i<files.length;i++){
+      var f=files[i];
+      var b64=await new Promise(function(resolve,reject){
+        var r=new FileReader();
+        r.onload=function(){ resolve(r.result.split(',')[1]); };
+        r.onerror=reject;
+        r.readAsDataURL(f);
+      });
+      parts.push({type:'image',source:{type:'base64',media_type:f.type||'image/jpeg',data:b64}});
+    }
+    parts.push({type:'text',text:'You are a professional scalp and hair treatment specialist. Analyse these scalp photos carefully. Provide a detailed clinical assessment including: 1) Scalp condition and health observations, 2) Hair density and growth patterns, 3) Any visible concerns or issues, 4) Recommended treatment approach, 5) Follow-up recommendations. Be thorough and professional.'});
+    var resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,messages:[{role:'user',content:parts}]})
+    });
+    var d=await resp.json();
+    var a=d.content.filter(function(x){ return x.type==='text'; }).map(function(x){ return x.text; }).join('');
+    txt.textContent=a;
+    window['_ai_'+vid]=a;
+    showToast('Done','Review and save',100); hideToast();
+  } catch(e){
+    txt.textContent='Analysis failed. Use paste option.';
+    showToast('Failed','',80); hideToast();
+  }
+}
+
+async function saveAI(vid){ await persistA(vid, window['_ai_'+vid]||''); }
+async function savePA(vid){
+  var t=document.getElementById('pa-'+vid).value.trim();
+  if(!t){ alert('Please paste some text first.'); return; }
+  await persistA(vid,t);
+}
+async function persistA(vid,a){
+  if(!a) return;
+  var v=visits.find(function(x){ return x.VisitID===vid; });
+  if(!v) return;
+  v.Analysis=a;
+  showToast('Saving analysis...','',50);
+  try{ await apiPost({action:'saveAnalysis',visitId:vid,analysis:a}); showToast('Saved','',100); }
+  catch(e){ showToast('Saved locally','',80); }
+  hideToast(); renderProfile(viewId);
+}
+
 function viewPdf(vid){
-  const v=visits.find(x=>x.VisitID===vid);const c=clients.find(x=>x.ClientID===v?.ClientID);if(!v||!c)return;
-  document.getElementById('pdf-modal-title').textContent='Report \u2014 '+c['Full Name']+' \u00b7 Session '+v['Session No'];
-  document.getElementById('pdf-content').innerHTML=buildPdf(c,v);
-  document.getElementById('pdf-modal').classList.add('open');
+  var v=visits.find(function(x){ return x.VisitID===vid; });
+  var c=clients.find(function(x){ return x.ClientID===(v?v.ClientID:''); });
+  if(!v||!c) return;
+  q('pdf-modal-title').textContent='Report \u2014 '+c['Full Name']+' \u00b7 Session '+v['Session No'];
+  q('pdf-content').innerHTML=buildPdf(c,v);
+  q('pdf-modal').classList.add('open');
 }
 function buildPdf(c,v){
-  return'<div class="pdf-clinic">Scalp Studio</div>'
+  return '<div class="pdf-clinic">Scalp Studio</div>'
     +'<div style="font-size:12px;color:var(--text-muted);font-family:\'DM Sans\',sans-serif;margin-top:2px">Scalp &amp; Hair Treatment Analysis Report</div>'
     +'<div class="pdf-divider"></div>'
     +'<div class="pdf-info-grid">'
@@ -703,11 +939,11 @@ function buildPdf(c,v){
     +'<div class="pdf-text">'+esc(v.Analysis||'')+'</div>'
     +'<div class="pdf-footer-note">Generated by Scalp Studio CRM \u00b7 '+new Date().toLocaleDateString('en-GB')+'</div>';
 }
-function closePdf(){document.getElementById('pdf-modal').classList.remove('open');}
-function printSess(vid){viewPdf(vid);setTimeout(doPrint,400);}
+function closePdf(){ q('pdf-modal').classList.remove('open'); }
+function printSess(vid){ viewPdf(vid); setTimeout(doPrint,400); }
 function doPrint(){
-  const html=document.getElementById('pdf-content').innerHTML;
-  const w=window.open('','_blank');
+  var html=q('pdf-content').innerHTML;
+  var w=window.open('','_blank');
   w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Analysis Report</title>'
     +'<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">'
     +'<style>body{font-family:\'DM Sans\',sans-serif;color:#2C2C2A;padding:40px;max-width:680px;margin:0 auto}'
@@ -720,102 +956,165 @@ function doPrint(){
     +'.pdf-text{font-size:14px;line-height:1.8;white-space:pre-wrap;color:#2C2C2A}'
     +'.pdf-footer-note{margin-top:32px;padding-top:14px;border-top:1px solid #E8E5DF;font-size:11px;color:#888}'
     +'@media print{body{padding:20px}}</style></head><body>'+html+'</body></html>');
-  w.document.close();w.onload=()=>w.print();
+  w.document.close();
+  w.onload=function(){ w.print(); };
 }
 
-/* ── FOLLOW-UPS ── */
 function renderFollowups(){
-  const ov=clients.filter(c=>isOver(c['Follow-up Date']));
-  const up=clients.filter(c=>isSoon(c['Follow-up Date']));
-  document.getElementById('fu-overdue').innerHTML=ov.length===0?'<div class="empty"><div class="empty-icon">&#10003;</div><div class="empty-title">No overdue follow-ups</div></div>':
-    ov.map(c=>'<div class="fu-row"><div class="avatar">'+ini(c['Full Name'])+'</div><div style="flex:1"><div style="font-weight:500">'+c['Full Name']+'</div><div style="font-size:12px;color:var(--text-muted)">Was due: '+fmtDate(c['Follow-up Date'])+'</div></div><span class="tag tag-red">Overdue</span><button class="btn btn-ghost btn-sm" onclick="go(\'profile\',\''+c.ClientID+'\')" style="margin-left:8px">View</button></div>').join('');
-  document.getElementById('fu-upcoming').innerHTML=up.length===0?'<div class="empty"><div class="empty-icon">&#128197;</div><div class="empty-title">None in the next 30 days</div></div>':
-    up.map(c=>'<div class="fu-row"><div class="avatar">'+ini(c['Full Name'])+'</div><div style="flex:1"><div style="font-weight:500">'+c['Full Name']+'</div><div style="font-size:12px;color:var(--text-muted)">Due: '+fmtDate(c['Follow-up Date'])+'</div></div><span class="tag tag-gold">Upcoming</span><button class="btn btn-ghost btn-sm" onclick="go(\'profile\',\''+c.ClientID+'\')" style="margin-left:8px">View</button></div>').join('');
+  var ov=clients.filter(function(c){ return isOver(c['Follow-up Date']); });
+  var up=clients.filter(function(c){ return isSoon(c['Follow-up Date']); });
+  var ovEl=q('fu-overdue');
+  ovEl.innerHTML='';
+  if(!ov.length){
+    ovEl.innerHTML='<div class="empty"><div class="empty-icon">&#10003;</div><div class="empty-title">No overdue follow-ups</div></div>';
+  } else {
+    ov.forEach(function(c){
+      var row=document.createElement('div'); row.className='fu-row';
+      row.innerHTML='<div class="avatar">'+ini(c['Full Name'])+'</div>'
+        +'<div style="flex:1"><div style="font-weight:500">'+c['Full Name']+'</div>'
+        +'<div style="font-size:12px;color:var(--text-muted)">Was due: '+fmtDate(c['Follow-up Date'])+'</div></div>'
+        +'<span class="tag tag-red">Overdue</span>';
+      var btn=document.createElement('button'); btn.className='btn btn-ghost btn-sm'; btn.style.marginLeft='8px'; btn.textContent='View';
+      btn.onclick=function(){ go('profile',c.ClientID); };
+      row.appendChild(btn); ovEl.appendChild(row);
+    });
+  }
+  var upEl=q('fu-upcoming');
+  upEl.innerHTML='';
+  if(!up.length){
+    upEl.innerHTML='<div class="empty"><div class="empty-icon">&#128197;</div><div class="empty-title">None in the next 30 days</div></div>';
+  } else {
+    up.forEach(function(c){
+      var row=document.createElement('div'); row.className='fu-row';
+      row.innerHTML='<div class="avatar">'+ini(c['Full Name'])+'</div>'
+        +'<div style="flex:1"><div style="font-weight:500">'+c['Full Name']+'</div>'
+        +'<div style="font-size:12px;color:var(--text-muted)">Due: '+fmtDate(c['Follow-up Date'])+'</div></div>'
+        +'<span class="tag tag-gold">Upcoming</span>';
+      var btn=document.createElement('button'); btn.className='btn btn-ghost btn-sm'; btn.style.marginLeft='8px'; btn.textContent='View';
+      btn.onclick=function(){ go('profile',c.ClientID); };
+      row.appendChild(btn); upEl.appendChild(row);
+    });
+  }
 }
 
-/* ── REGISTER ── */
-function clearReg(){['r-name','r-phone','r-email','r-birthday','r-city','r-notes'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});document.getElementById('r-gender').value='';}
+function clearReg(){
+  ['r-name','r-phone','r-email','r-birthday','r-city','r-notes'].forEach(function(id){
+    var e=q(id); if(e) e.value='';
+  });
+  q('r-gender').value='';
+}
+
 async function saveClient(){
-  const name=document.getElementById('r-name').value.trim();
-  const phone=document.getElementById('r-phone').value.trim();
-  if(!name||!phone){alert('Please enter at least the full name and phone number.');return;}
-  const c={ClientID:nextId(),'Full Name':name,Phone:phone,Email:document.getElementById('r-email').value.trim(),Birthday:document.getElementById('r-birthday').value,Gender:document.getElementById('r-gender').value,City:document.getElementById('r-city').value.trim(),Notes:document.getElementById('r-notes').value.trim(),'Follow-up Date':'','Created At':new Date().toISOString().split('T')[0],UpcomingDates:'[]',Protocol:''};
-  toast('Saving client...','',30);
-  try{await claude('Append this row to the "Clients" sheet in Google Spreadsheet ID "'+SHEET_ID+'": '+JSON.stringify(Object.values(c))+'. Reply: DONE',300);clients.push(c);toast('Saved',c.ClientID,100);}
-  catch(e){clients.push(c);toast('Saved locally','',80);}
-  hideToast();go('profile',c.ClientID);
+  var name=q('r-name').value.trim();
+  var phone=q('r-phone').value.trim();
+  if(!name||!phone){ alert('Please enter at least the full name and phone number.'); return; }
+  var c={
+    ClientID:nextId(), 'Full Name':name, Phone:phone,
+    Email:q('r-email').value.trim(),
+    Birthday:q('r-birthday').value,
+    Gender:q('r-gender').value,
+    City:q('r-city').value.trim(),
+    Notes:q('r-notes').value.trim(),
+    'Follow-up Date':'',
+    'Created At':new Date().toISOString().split('T')[0],
+    UpcomingDates:'[]', Protocol:''
+  };
+  showToast('Saving client...','Writing to Google Sheet',30);
+  try{
+    var res=await apiPost({action:'saveClient',client:c});
+    if(res.success){ clients.push(c); showToast('Client saved!',c.ClientID,100); }
+    else{ clients.push(c); showToast('Saved locally','',80); }
+  } catch(e){ clients.push(c); showToast('Saved locally','Will sync when online',80); }
+  hideToast(); go('profile',c.ClientID);
 }
 
-/* ── EDIT ── */
 function openEdit(cid){
-  editId=cid;const c=clients.find(x=>x.ClientID===cid);
-  document.getElementById('e-name').value=c['Full Name']||'';
-  document.getElementById('e-phone').value=c.Phone||'';
-  document.getElementById('e-email').value=c.Email||'';
-  document.getElementById('e-birthday').value=c.Birthday||'';
-  document.getElementById('e-gender').value=c.Gender||'';
-  document.getElementById('e-city').value=c.City||'';
-  document.getElementById('e-notes').value=c.Notes||'';
-  document.getElementById('edit-modal').classList.add('open');
+  editId=cid;
+  var c=clients.find(function(x){ return x.ClientID===cid; });
+  q('e-name').value=c['Full Name']||'';
+  q('e-phone').value=c.Phone||'';
+  q('e-email').value=c.Email||'';
+  q('e-birthday').value=c.Birthday||'';
+  q('e-gender').value=c.Gender||'';
+  q('e-city').value=c.City||'';
+  q('e-notes').value=c.Notes||'';
+  q('edit-modal').classList.add('open');
 }
-function closeEdit(){document.getElementById('edit-modal').classList.remove('open');}
+function closeEdit(){ q('edit-modal').classList.remove('open'); }
+
 async function saveEdit(){
-  const c=clients.find(x=>x.ClientID===editId);
-  c['Full Name']=document.getElementById('e-name').value.trim();
-  c.Phone=document.getElementById('e-phone').value.trim();
-  c.Email=document.getElementById('e-email').value.trim();
-  c.Birthday=document.getElementById('e-birthday').value;
-  c.Gender=document.getElementById('e-gender').value;
-  c.City=document.getElementById('e-city').value.trim();
-  c.Notes=document.getElementById('e-notes').value.trim();
-  closeEdit();toast('Updating...','',40);
-  try{await claude('In Google Spreadsheet ID "'+SHEET_ID+'", Clients sheet, find row where column A="'+c.ClientID+'" and update entire row with: '+JSON.stringify(Object.values(c))+'. Reply: DONE',300);toast('Updated','',100);}
-  catch(e){toast('Saved locally','',80);}
-  hideToast();renderProfile(editId);
+  var c=clients.find(function(x){ return x.ClientID===editId; });
+  c['Full Name']=q('e-name').value.trim();
+  c.Phone=q('e-phone').value.trim();
+  c.Email=q('e-email').value.trim();
+  c.Birthday=q('e-birthday').value;
+  c.Gender=q('e-gender').value;
+  c.City=q('e-city').value.trim();
+  c.Notes=q('e-notes').value.trim();
+  closeEdit();
+  showToast('Updating...','',40);
+  try{ await apiPost({action:'updateClient',client:c}); showToast('Updated!','',100); }
+  catch(e){ showToast('Saved locally','',80); }
+  hideToast(); renderProfile(editId);
 }
 
-/* ── NEW VISIT ── */
 function prepVisit(){
-  const sel=document.getElementById('v-client');
+  var sel=q('v-client');
   sel.innerHTML='<option value="">Choose a client...</option>';
-  clients.sort((a,b)=>(a['Full Name']||'').localeCompare(b['Full Name']||'')).forEach(c=>{
-    const o=document.createElement('option');o.value=c.ClientID;o.textContent=c['Full Name']+' ('+c.ClientID+')';sel.appendChild(o);
+  clients.slice().sort(function(a,b){
+    return (a['Full Name']||'').localeCompare(b['Full Name']||'');
+  }).forEach(function(c){
+    var o=document.createElement('option');
+    o.value=c.ClientID;
+    o.textContent=c['Full Name']+' ('+c.ClientID+')';
+    sel.appendChild(o);
   });
   photos=[];
-  document.getElementById('photo-grid').innerHTML='';
-  document.getElementById('v-date').value=todayDMY();
-  const btn=document.getElementById('btn-save-visit');
-  btn.disabled=false;btn.innerHTML='Save &amp; Upload to Google Drive';
+  q('photo-grid').innerHTML='';
+  q('v-date').value=todayDMY();
+  var btn=q('btn-save-visit');
+  btn.disabled=false;
+  btn.innerHTML='Save &amp; Upload to Google Drive';
 }
-function quickVisit(cid){go('new-visit');setTimeout(()=>{document.getElementById('v-client').value=cid;},80);}
-function onPhotos(e){photos=[...photos,...Array.from(e.target.files)];renderPhotos();}
+
+function quickVisit(cid){
+  go('new-visit');
+  setTimeout(function(){ q('v-client').value=cid; },80);
+}
+
+function onPhotos(e){ photos=photos.concat(Array.from(e.target.files)); renderPhotos(); }
 function renderPhotos(){
-  document.getElementById('photo-grid').innerHTML=photos.map((f,i)=>
-    '<div class="photo-thumb"><img src="'+URL.createObjectURL(f)+'"><button class="photo-remove" onclick="rmPhoto('+i+')">&#x2715;</button></div>').join('');
+  q('photo-grid').innerHTML=photos.map(function(f,i){
+    return '<div class="photo-thumb"><img src="'+URL.createObjectURL(f)+'"><button class="photo-remove" onclick="rmPhoto('+i+')">&#x2715;</button></div>';
+  }).join('');
 }
-function rmPhoto(i){photos.splice(i,1);renderPhotos();}
+function rmPhoto(i){ photos.splice(i,1); renderPhotos(); }
 
 async function saveVisit(){
-  const cid=document.getElementById('v-client').value;
-  const dv=document.getElementById('v-date').value.trim();
-  if(!cid){alert('Please select a client.');return;}
-  if(!dv||dv.length<10){alert('Please enter the date in dd/mm/yyyy format.');return;}
-  const c=clients.find(x=>x.ClientID===cid);
-  const sn=cv(cid).length+1;
-  const lbl=c.ClientID+' | '+c['Full Name'];
-  const dp='Clients Photos / '+lbl+' / Session '+sn;
-  const btn=document.getElementById('btn-save-visit');
-  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Uploading...';
-  toast('Creating Drive folder...','Session '+sn,20);
-  try{await claude('In Google Drive folder ID "'+FOLDER_ID+'": 1. Find or create subfolder named exactly: "'+lbl+'" 2. Inside it find or create subfolder named exactly: "Session '+sn+'". Reply: DONE',300);toast('Folder ready','',55);}
-  catch(e){toast('Drive issue','Saving record only...',35);}
-  await sleep(400);
-  const v={VisitID:'V-'+Date.now(),ClientID:cid,'Client Name':c['Full Name'],'Session No':sn,Date:dv,Notes:'','Drive Folder':dp,'Follow-up Date':'',Analysis:''};
-  toast('Writing to Sheet...','',75);
-  try{await claude('Append this row to "Visits" sheet in Google Spreadsheet ID "'+SHEET_ID+'": '+JSON.stringify(Object.values(v))+'. Reply: DONE',300);visits.push(v);toast('Saved! Session '+sn,'',100);}
-  catch(e){visits.push(v);toast('Saved locally','',80);}
-  btn.disabled=false;btn.innerHTML='Save &amp; Upload to Google Drive';
-  hideToast();go('profile',cid);
+  var cid=q('v-client').value;
+  var dv=q('v-date').value.trim();
+  if(!cid){ alert('Please select a client.'); return; }
+  if(!dv||dv.length<10){ alert('Please enter the date in dd/mm/yyyy format.'); return; }
+  var c=clients.find(function(x){ return x.ClientID===cid; });
+  var sn=cv(cid).length+1;
+  var lbl=c.ClientID+' | '+c['Full Name'];
+  var dp='Clients Photos / '+lbl+' / Session '+sn;
+  var btn=q('btn-save-visit');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spinner"></span> Saving...';
+  showToast('Saving visit...','Creating Drive folder: Session '+sn,25);
+  var v={
+    VisitID:'V-'+Date.now(), ClientID:cid, 'Client Name':c['Full Name'],
+    'Session No':sn, Date:dv, Notes:'', 'Drive Folder':dp, 'Follow-up Date':'', Analysis:''
+  };
+  try{
+    var res=await apiPost({action:'saveVisit',visit:v});
+    if(res.success){ visits.push(v); showToast('Saved! Drive folder created.','Session '+sn,100); }
+    else{ visits.push(v); showToast('Saved','Drive may not have updated',80); }
+  } catch(e){ visits.push(v); showToast('Saved locally','Will sync when online',80); }
+  btn.disabled=false;
+  btn.innerHTML='Save &amp; Upload to Google Drive';
+  hideToast(); go('profile',cid);
 }
 
 loadData();
