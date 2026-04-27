@@ -297,16 +297,7 @@ body{font-family:'DM Sans',sans-serif;color:var(--charcoal);font-size:15px;line-
             </div>
           </div>
         </div>
-        <div class="form-section">
-          <div class="form-section-title">Visit Photos</div>
-          <div class="photo-drop" onclick="document.getElementById('v-photos').click()">
-            <div class="drop-icon">&#128247;</div>
-            <div class="drop-title">Tap to select photos</div>
-            <div class="drop-sub">You can select multiple photos at once</div>
-          </div>
-          <input type="file" id="v-photos" style="display:none" multiple accept="image/*" onchange="onPhotos(event)">
-          <div class="photo-grid" id="photo-grid"></div>
-        </div>
+
         <button class="btn btn-gold btn-full" onclick="saveVisit()" id="btn-save-visit">Save &amp; Upload to Google Drive</button>
       </div>
     </div>
@@ -366,8 +357,9 @@ body{font-family:'DM Sans',sans-serif;color:var(--charcoal);font-size:15px;line-
 
 <script>
 var API = 'https://script.google.com/macros/s/AKfycbzo4aBE4pTHEcdyppj_6wIK9BDvmUxRFAafo8vpaR4LY-uf-OdIGK15zWTxc4OOZJe9/exec';
+var PHOTOS_FOLDER_ID = '1L5PCsfcLSIOu-G5VyGn-C5mxBWVBkiF9';
 
-var clients = [], visits = [], photos = [], editId = null, viewId = null;
+var clients = [], visits = [], editId = null, viewId = null;
 
 function pad(n){ return String(n).padStart(2,'0'); }
 function todayDMY(){ var d=new Date(); return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear(); }
@@ -432,17 +424,32 @@ async function loadData(){
   try{
     setLoad(30,'Loading clients...');
     var cr=await apiGet('getClients');
-    if(cr.success) clients=cr.data;
+    if(cr.success && cr.data) clients=cr.data;
     setLoad(65,'Loading visits...');
     var vr=await apiGet('getVisits');
-    if(vr.success) visits=vr.data;
+    if(vr.success && vr.data) visits=vr.data;
     setLoad(100,'Ready!');
     await sleep(400);
   } catch(e){
-    setLoad(100,'Loaded offline');
-    await sleep(600);
+    setLoad(100,'Could not connect - check internet');
+    await sleep(1000);
   }
   q('loading-screen').style.display='none';
+  renderDash();
+}
+
+async function refreshData(){
+  showToast('Refreshing...','',30);
+  try{
+    var cr=await apiGet('getClients');
+    if(cr.success && cr.data) clients=cr.data;
+    var vr=await apiGet('getVisits');
+    if(vr.success && vr.data) visits=vr.data;
+    showToast('Updated','',100);
+  } catch(e){
+    showToast('Could not connect','Check your internet',50);
+  }
+  hideToast();
   renderDash();
 }
 
@@ -455,7 +462,7 @@ function go(page, cid){
   var nm={ dashboard:0, clients:1, 'new-visit':2, register:3, followups:4, profile:1 };
   document.querySelectorAll('.nav-item')[nm[page]||0].classList.add('active');
   var ta=q('topbar-actions'); ta.innerHTML='';
-  if(page==='dashboard') renderDash();
+  if(page==='dashboard'){ renderDash(); ta.innerHTML='<button class="btn btn-ghost btn-sm" onclick="refreshData()">&#8635; Refresh</button>'; }
   if(page==='clients') renderTable();
   if(page==='new-visit') prepVisit();
   if(page==='followups') renderFollowups();
@@ -1069,8 +1076,6 @@ function prepVisit(){
     o.textContent=c['Full Name']+' ('+c.ClientID+')';
     sel.appendChild(o);
   });
-  photos=[];
-  q('photo-grid').innerHTML='';
   q('v-date').value=todayDMY();
   var btn=q('btn-save-visit');
   btn.disabled=false;
@@ -1082,13 +1087,7 @@ function quickVisit(cid){
   setTimeout(function(){ q('v-client').value=cid; },80);
 }
 
-function onPhotos(e){ photos=photos.concat(Array.from(e.target.files)); renderPhotos(); }
-function renderPhotos(){
-  q('photo-grid').innerHTML=photos.map(function(f,i){
-    return '<div class="photo-thumb"><img src="'+URL.createObjectURL(f)+'"><button class="photo-remove" onclick="rmPhoto('+i+')">&#x2715;</button></div>';
-  }).join('');
-}
-function rmPhoto(i){ photos.splice(i,1); renderPhotos(); }
+
 
 async function saveVisit(){
   var cid=q('v-client').value;
@@ -1114,7 +1113,9 @@ async function saveVisit(){
   } catch(e){ visits.push(v); showToast('Saved locally','Will sync when online',80); }
   btn.disabled=false;
   btn.innerHTML='Save &amp; Upload to Google Drive';
-  hideToast(); go('profile',cid);
+  hideToast();
+
+  go('profile',cid);
 }
 
 loadData();
